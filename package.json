@@ -1,6 +1,6 @@
 {
   "name": "react-vrpc",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "React wrapper around the vrpc library",
   "repository": "https://github.com/JacobTheEvans/react-vrpc",
   "author": "Jacob Evans",
@@ -63,9 +63,7 @@
     "babel-preset-stage-0": "^6.24.1"
   },
   "scripts": {
-    "start": "node scripts/start.js",
-    "build": "node scripts/build.js",
-    "lib": "babel src/ --out-dir lib --copy-files"
+    "build": "babel src/ --out-dir lib --copy-files"
   },
   "babel": {
     "presets": [
