@@ -1,5 +1,6 @@
 import React, { Component } from 'react'
 import { VrpcRemote } from 'vrpc'
+import { lowerFirstChar } from './utils'
 
 const VrpcContext = React.createContext()
 
