@@ -12,9 +12,7 @@
     "react-vrpc",
     "Remote Procedural Calls"
   ],
-  "dependencies": {
-    "vrpc": "^2.0.0-alpha.2"
-  },
+  "dependencies": {},
   "devDependencies": {
     "autoprefixer": "7.1.6",
     "babel-core": "6.26.0",

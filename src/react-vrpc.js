@@ -29,27 +29,41 @@ class VrpcInstanceMaker extends Component {
       vrpc,
       agentId,
       className,
-      instanceName
+      instanceName,
+      args
     } = this.props
-    this.setState({
-      [instanceName]: await vrpc.create(agentId, className)
-    })
+    if (agentId) {
+      this.setState({
+        [instanceName]: await vrpc.create(agentId, className, args)
+      })
+    }
   }
 
   render () {
-    const { instanceName, oldProps, PassedComponent } = this.props
-    if (!this.state[instanceName]) return false
-    return (
-      <PassedComponent
-        {...oldProps}
-        {...{[instanceName]: this.state[instanceName]}}
-      />
-    )
+    const {
+      vrpc,
+      agentId,
+      instanceName,
+      oldProps,
+      PassedComponent
+    } = this.props
+    if (agentId && !this.state[instanceName]) return false
+    if (agentId) {
+      return (
+        <PassedComponent
+          {...oldProps}
+          vrpc={vrpc}
+          {...{[instanceName]: this.state[instanceName]}}
+        />
+      )
+    }
+    return <PassedComponent {...oldProps} vrpc={vrpc} />
   }
 }
 
-export function connectVrpc (agentId, className) {
-  return function withVrpc (PassedComponent) {
+export function withVrpc (agentId, className, ...args) {
+  // TODO Error handling of having defined agentId but not className
+  return function _withVrpc (PassedComponent) {
     return class ComponentWithVrpc extends Component {
       render () {
         return (
@@ -61,6 +75,7 @@ export function connectVrpc (agentId, className) {
                 vrpc={vrpc}
                 agentId={agentId}
                 className={className}
+                args={args}
                 instanceName={lowerFirstChar(className)}
               />
             )}
