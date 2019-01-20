@@ -6,9 +6,12 @@ const VrpcContext = React.createContext()
 
 export function createVrpcProvider ({
   topicPrefix,
-  brokerUrl
+  brokerUrl,
+  username,
+  password,
+  token
 } = {}) {
-  const vrpc = new VrpcRemote({ topicPrefix, brokerUrl })
+  const vrpc = new VrpcRemote({ topicPrefix, brokerUrl, username, password, token })
   return function VrpcProvider ({ children }) {
     return (
       <VrpcContext.Provider value={vrpc}>
@@ -37,6 +40,16 @@ class VrpcInstanceMaker extends Component {
         [instanceName]: await vrpc.create(agentId, className, args)
       })
     }
+  }
+
+  async componentWillUnmount () {
+    const {
+      vrpc,
+      instanceName
+    } = this.props
+    console.log('deleting vrpc instance:', instanceName)
+    // TODO Implement
+    // vrpc.delete(this.state[instanceName])
   }
 
   render () {
