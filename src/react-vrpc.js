@@ -89,7 +89,7 @@ export function withVrpc (agentId, className, ...args) {
                 agentId={agentId}
                 className={className}
                 args={args}
-                instanceName={lowerFirstChar(className)}
+                instanceName={className && lowerFirstChar(className)}
               />
             )}
           </VrpcContext.Consumer>
