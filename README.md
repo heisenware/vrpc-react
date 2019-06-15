@@ -7,6 +7,8 @@ React wrapper around the [vrpc](https://github.com/bheisen/vrpc) library
 In the *index.js* of your react app add something like:
 
 ```javascript
+import { createVrpcProvider } from 'react-vrpc'
+
 const VrpcProvider = createVrpcProvider({
   backends: {
     myBackend: {
