@@ -1,100 +1,55 @@
 import React, { Component } from 'react'
 import { VrpcRemote } from 'vrpc'
-import { lowerFirstChar } from './utils'
 
 const VrpcContext = React.createContext()
 
-export function createVrpcProvider ({
-  topicPrefix,
-  brokerUrl,
-  username,
-  password,
-  token
-} = {}) {
-  const vrpc = new VrpcRemote({ topicPrefix, brokerUrl, username, password, token })
+export function createVrpcProvider ({ broker, token, backends }) {
+  const vrpc = new VrpcRemote({ broker, token })
   return function VrpcProvider ({ children }) {
     return (
-      <VrpcContext.Provider value={vrpc}>
+      <VrpcBackendMaker vrpc={vrpc} backends={backends}>
+        {children}
+      </VrpcBackendMaker>
+    )
+  }
+}
+
+class VrpcBackendMaker extends Component {
+  constructor () {
+    super()
+    this.state = { vrpcIsLoading: true }
+  }
+  async componentDidMount () {
+    const { vrpc, backends } = this.props
+    const obj = {}
+    for (let [key, value] of Object.entries(backends)) {
+      const { domain, agent, className, args } = value
+      obj[key] = await vrpc.create({ domain, agent, className, args })
+    }
+    this.setState({ vrpc, ...obj, vrpcIsLoading: false })
+  }
+  render () {
+    const { vrpcIsLoading } = this.state
+    if (vrpcIsLoading) return false
+    const { children } = this.props
+    return (
+      <VrpcContext.Provider value={this.state}>
         {children}
       </VrpcContext.Provider>
     )
   }
 }
 
-class VrpcInstanceMaker extends Component {
-  constructor () {
-    super()
-    this.state = {}
-  }
-
-  async componentDidMount () {
-    const {
-      vrpc,
-      agentId,
-      className,
-      instanceName,
-      args
-    } = this.props
-    if (agentId) {
-      this.setState({
-        [instanceName]: await vrpc.create(agentId, className, args)
-      })
-    }
-  }
-
-  async componentWillUnmount () {
-    const {
-      vrpc,
-      instanceName
-    } = this.props
-    console.log('deleting vrpc instance:', instanceName)
-    // TODO Implement
-    // vrpc.delete(this.state[instanceName])
-  }
-
-  render () {
-    const {
-      vrpc,
-      agentId,
-      instanceName,
-      oldProps,
-      PassedComponent
-    } = this.props
-    if (agentId && !this.state[instanceName]) return false
-    if (agentId) {
+export function withVrpc (PassedComponent) {
+  return class ComponentWithVrpc extends Component {
+    render () {
       return (
-        <PassedComponent
-          {...oldProps}
-          vrpc={vrpc}
-          {...{[instanceName]: this.state[instanceName]}}
-        />
+        <VrpcContext.Consumer>
+          {vrpcInfo => (
+            <PassedComponent {...this.props} {...vrpcInfo} />
+          )}
+        </VrpcContext.Consumer>
       )
-    }
-    return <PassedComponent {...oldProps} vrpc={vrpc} />
-  }
-}
-
-export function withVrpc (agentId, className, ...args) {
-  // TODO Error handling of having defined agentId but not className
-  return function _withVrpc (PassedComponent) {
-    return class ComponentWithVrpc extends Component {
-      render () {
-        return (
-          <VrpcContext.Consumer>
-            {vrpc => (
-              <VrpcInstanceMaker
-                oldProps={this.props}
-                PassedComponent={PassedComponent}
-                vrpc={vrpc}
-                agentId={agentId}
-                className={className}
-                args={args}
-                instanceName={className && lowerFirstChar(className)}
-              />
-            )}
-          </VrpcContext.Consumer>
-        )
-      }
     }
   }
 }
