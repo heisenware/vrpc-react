@@ -1,72 +1,55 @@
 import React, { Component } from 'react'
 import { VrpcRemote } from 'vrpc'
-import { lowerFirstChar } from './utils'
 
 const VrpcContext = React.createContext()
 
-export function createVrpcProvider ({
-  topicPrefix,
-  brokerUrl
-} = {}) {
-  const vrpc = new VrpcRemote({ topicPrefix, brokerUrl })
+export function createVrpcProvider ({ broker, token, backends }) {
+  const vrpc = new VrpcRemote({ broker, token })
   return function VrpcProvider ({ children }) {
     return (
-      <VrpcContext.Provider value={vrpc}>
+      <VrpcBackendMaker vrpc={vrpc} backends={backends}>
+        {children}
+      </VrpcBackendMaker>
+    )
+  }
+}
+
+class VrpcBackendMaker extends Component {
+  constructor () {
+    super()
+    this.state = { vrpcIsLoading: true }
+  }
+  async componentDidMount () {
+    const { vrpc, backends } = this.props
+    const obj = {}
+    for (let [key, value] of Object.entries(backends)) {
+      const { domain, agent, className, args } = value
+      obj[key] = await vrpc.create({ domain, agent, className, args })
+    }
+    this.setState({ vrpc, ...obj, vrpcIsLoading: false })
+  }
+  render () {
+    const { vrpcIsLoading } = this.state
+    if (vrpcIsLoading) return false
+    const { children } = this.props
+    return (
+      <VrpcContext.Provider value={this.state}>
         {children}
       </VrpcContext.Provider>
     )
   }
 }
 
-class VrpcInstanceMaker extends Component {
-  constructor () {
-    super()
-    this.state = {}
-  }
-
-  async componentDidMount () {
-    const {
-      vrpc,
-      agentId,
-      className,
-      instanceName
-    } = this.props
-    this.setState({
-      [instanceName]: await vrpc.create(agentId, className)
-    })
-  }
-
-  render () {
-    const { instanceName, oldProps, PassedComponent } = this.props
-    if (!this.state[instanceName]) return false
-    return (
-      <PassedComponent
-        {...oldProps}
-        {...{[instanceName]: this.state[instanceName]}}
-      />
-    )
-  }
-}
-
-export function connectVrpc (agentId, className) {
-  return function withVrpc (PassedComponent) {
-    return class ComponentWithVrpc extends Component {
-      render () {
-        return (
-          <VrpcContext.Consumer>
-            {vrpc => (
-              <VrpcInstanceMaker
-                oldProps={this.props}
-                PassedComponent={PassedComponent}
-                vrpc={vrpc}
-                agentId={agentId}
-                className={className}
-                instanceName={lowerFirstChar(className)}
-              />
-            )}
-          </VrpcContext.Consumer>
-        )
-      }
+export function withVrpc (PassedComponent) {
+  return class ComponentWithVrpc extends Component {
+    render () {
+      return (
+        <VrpcContext.Consumer>
+          {vrpcInfo => (
+            <PassedComponent {...this.props} {...vrpcInfo} />
+          )}
+        </VrpcContext.Consumer>
+      )
     }
   }
 }
