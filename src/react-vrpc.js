@@ -19,15 +19,17 @@ class VrpcBackendMaker extends Component {
     super()
     this.state = { vrpcIsLoading: true }
   }
+
   async componentDidMount () {
     const { vrpc, backends } = this.props
     const obj = {}
-    for (let [key, value] of Object.entries(backends)) {
+    for (const [key, value] of Object.entries(backends)) {
       const { domain, agent, className, args } = value
       obj[key] = await vrpc.create({ domain, agent, className, args })
     }
     this.setState({ vrpc, ...obj, vrpcIsLoading: false })
   }
+
   render () {
     const { vrpcIsLoading } = this.state
     if (vrpcIsLoading) return false
