@@ -10,17 +10,16 @@ In the *index.js* of your react app add something like:
 import { createVrpcProvider } from 'react-vrpc'
 
 const VrpcProvider = createVrpcProvider({
+  domain: '<domain>',
+  broker: 'wss://vrpc.io/mqtt',
+  token: '<proxyToken>',
   backends: {
     myBackend: {
-      domain: '<domain>',
       agent: '<agentName>',
       className: '<className>',
-      args: '<constructorArguments>'
-
+      args: ['<constructorArgs>']
     }
   },
-  broker: 'wss://vrpc.io/mqtt',
-  token: '<proxyToken>'
 })
 ```
 
@@ -33,7 +32,7 @@ instance of the class you chose in the `className` property.
 
 ---
 
-**TIP**
+**TIP 1**
 
 For the token you can use an environmental variable to not expose it into
 your repository, i.e.:
@@ -41,6 +40,32 @@ your repository, i.e.:
 ```
 token: process.env.REACT_APP_PROXY_TOKEN
 ```
+
+If you are using your own broker you can use `username` and
+`password` instead of `token`.
+
+---
+
+**TIP 2**
+
+For testing you can type:
+
+```javascript
+const VrpcProvider = createVrpcProvider({
+  domain: 'public.vrpc',
+  broker: 'wss://vrpc.io/mqtt',
+  backends: {
+    myBackend: {
+      agent: '<agentName>',
+      className: '<className>',
+      args: ['<constructorArgs>']
+    }
+  },
+})
+```
+
+i.e. use VRPC's free `public.vrpc` domain which works without
+authentication.
 
 ---
 
