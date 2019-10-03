@@ -3,8 +3,15 @@ import { VrpcRemote } from 'vrpc'
 
 const VrpcContext = React.createContext()
 
-export function createVrpcProvider ({ broker, token, backends }) {
-  const vrpc = new VrpcRemote({ broker, token })
+export function createVrpcProvider ({
+  domain,
+  broker,
+  token,
+  username,
+  password,
+  backends
+}) {
+  const vrpc = new VrpcRemote({ broker, token, domain, username, password })
   return function VrpcProvider ({ children }) {
     return (
       <VrpcBackendMaker vrpc={vrpc} backends={backends}>
@@ -24,8 +31,8 @@ class VrpcBackendMaker extends Component {
     const { vrpc, backends } = this.props
     const obj = {}
     for (const [key, value] of Object.entries(backends)) {
-      const { domain, agent, className, args } = value
-      obj[key] = await vrpc.create({ domain, agent, className, args })
+      const { agent, className, args } = value
+      obj[key] = await vrpc.create({ agent, className, args })
     }
     this.setState({ vrpc, ...obj, vrpcIsLoading: false })
   }
