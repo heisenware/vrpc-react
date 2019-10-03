@@ -1,6 +1,6 @@
 {
   "name": "react-vrpc",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "React wrapper around the vrpc library",
   "repository": "https://github.com/JacobTheEvans/react-vrpc",
   "author": "Jacob Evans",
