@@ -17,6 +17,7 @@ const VrpcProvider = createVrpcProvider({
     myBackend: {
       agent: '<agentName>',
       className: '<className>',
+      instance: '<instanceName>',
       args: ['<constructorArgs>']
     }
   },

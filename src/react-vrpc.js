@@ -31,8 +31,16 @@ class VrpcBackendMaker extends Component {
     const { vrpc, backends } = this.props
     const obj = {}
     for (const [key, value] of Object.entries(backends)) {
-      const { agent, className, args } = value
-      obj[key] = await vrpc.create({ agent, className, args })
+      const { agent, className, instance, args } = value
+      if (instance) {
+        if (args) {
+          obj[key] = await vrpc.create({ agent, className, instance, args })
+        } else {
+          obj[key] = await vrpc.getInstance({ agent, className, instance })
+        }
+      } else {
+        obj[key] = await vrpc.create({ agent, className, args })
+      }
     }
     this.setState({ vrpc, ...obj, vrpcIsLoading: false })
   }
