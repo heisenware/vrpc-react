@@ -1,10 +1,9 @@
 # react-vrpc
 React wrapper around the [vrpc](https://github.com/bheisen/vrpc) library
 
+## Step 1 - Create VrpcProvider
 
-## Usage
-
-In the *index.js* of your react app add something like:
+In the `index.js` of your react app add something like:
 
 ```javascript
 import { createVrpcProvider } from 'react-vrpc'
@@ -12,7 +11,6 @@ import { createVrpcProvider } from 'react-vrpc'
 const VrpcProvider = createVrpcProvider({
   domain: '<domain>',
   broker: 'wss://vrpc.io/mqtt',
-  token: '<proxyToken>',
   backends: {
     myBackend: {
       agent: '<agentName>',
@@ -33,44 +31,49 @@ instance of the class you chose in the `className` property.
 
 ---
 
-**TIP 1**
+> **TIP**
+>
+> For testing you can simply type:
+>
+> ```javascript
+> const VrpcProvider = createVrpcProvider({
+>   backends: {
+>     myBackend: {
+>       agent: '<agentName>',
+>       className: '<className>',
+>       args: ['<constructorArgs>']
+>     }
+>   },
+> })
+> ```
+> this will use the broker hosted by https://vrpc.io and the `public.vrpc` domain
+> which works without authentication.
 
-For the token you can use an environmental variable to not expose it into
-your repository, i.e.:
-
-```
-token: process.env.REACT_APP_PROXY_TOKEN
-```
-
-If you are using your own broker you can use `username` and
-`password` instead of `token`.
 
 ---
 
-**TIP 2**
+## Step 2 - Use the VrpcProvider
 
-For testing you can type:
+At a top-level position of your component hierarchy add the `<VrpcProvider>`
 
 ```javascript
-const VrpcProvider = createVrpcProvider({
-  domain: 'public.vrpc',
-  broker: 'wss://vrpc.io/mqtt',
-  backends: {
-    myBackend: {
-      agent: '<agentName>',
-      className: '<className>',
-      args: ['<constructorArgs>']
-    }
-  },
-})
+ReactDOM.render(
+  <VrpcProvider username='test' password='secret'>
+    <Router>
+      <Switch>
+        <Route exact path='/myComponent' component={MyComponent} />
+      </Switch>
+    </Router>
+  </VrpcProvider>
+  document.getElementById('root')
 ```
 
-i.e. use VRPC's free `public.vrpc` domain which works without
-authentication.
+> **NOTE**
+>
+> If working with `https://vrpc.io` as broker solution you may also
+> use `token` instead of `username` and `password`.
 
----
-
-In the components you need to access the backend use:
+## Step 3 - Give a component access to backend functions
 
 ```javascript
 import React from 'react'
@@ -88,24 +91,21 @@ export default withVrpc(YourComponent)
 ```
 
 ---
-**NOTE 1**
+> **NOTE 1**
+>
+> Optionally, you can use the `vrpc` object which reflects the remote proxy
+> instance.
 
-Optionally, you can use the `vrpc` object which reflects the remote proxy
-instance.
-
----
-**NOTE 2**
-
-Always use `await` as all VRPC calls need to travel the network and are
-asynchronous by default. If the backend function you are calling is
-`async` itself, simply add a second `await`, like so:
-
-```javascript
-const ret = await await myBackend.anAsyncBackendFunction('test')
-```
-
-You can use simple `try/catch` statements, VRPC forwards potential exceptions
-on the backend for you.
+> **NOTE 2**
+>
+> Always use `await` as all VRPC calls need to travel the network and are
+> asynchronous by default. If the backend function you are calling is
+> `async` itself, simply add a second `await`, like so:
+>
+> `const ret = await await myBackend.anAsyncBackendFunction('test')`
+>
+> You can use simple `try/catch` statements, VRPC forwards potential exceptions
+> on the backend for you.
 
 ---
 
