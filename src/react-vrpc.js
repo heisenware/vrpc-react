@@ -45,7 +45,7 @@ class VrpcBackendMaker extends Component {
     await vrpc.connected()
     const obj = {}
     for (const [key, value] of Object.entries(backends)) {
-      const { agent, className, instance, args } = value
+      const { agent, className, instance, args, events = [] } = value
       if (instance) {
         if (args) { // use specific instance and create if not exists
           obj[key] = await vrpc.create({ agent, className, instance, args })
@@ -61,11 +61,11 @@ class VrpcBackendMaker extends Component {
             const classNames = await vrpc.getAvailableClasses(agent)
             for (const name of classNames) {
               if (name.match(className)) {
-                await this._registerProxy(obj, key, agent, name, vrpc)
+                await this._registerProxy(obj, key, agent, events, name, vrpc)
               }
             }
           } else {
-            await this._registerProxy(obj, key, agent, className, vrpc)
+            await this._registerProxy(obj, key, agent, events, className, vrpc)
           }
         }
       }
@@ -73,10 +73,16 @@ class VrpcBackendMaker extends Component {
     this.setState({ vrpc, ...obj, vrpcIsLoading: false })
   }
 
-  async _registerProxy (obj, key, agent, className, vrpc) {
+  async _registerProxy (obj, key, agent, events, className, vrpc) {
     const instances = await vrpc.getAvailableInstances(className, agent)
     for (const instance of instances) {
       const proxy = await vrpc.getInstance({ agent, className, instance })
+      proxy._className = className
+      for (const event of events) {
+        proxy.on(event, (...args) => {
+          proxy[event] = args
+        })
+      }
       obj[key].push(proxy)
     }
     vrpc.on('class', async (info) => {
@@ -94,6 +100,12 @@ class VrpcBackendMaker extends Component {
           className: info.className,
           instance
         })
+        proxy._className = info.className
+        for (const event of events) {
+          proxy.on(event, (...args) => {
+            proxy[event] = args
+          })
+        }
         updated.push(proxy)
       }
       this.setState({ [key]: updated })
