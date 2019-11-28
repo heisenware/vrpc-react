@@ -79,7 +79,7 @@ class VrpcBackendMaker extends Component {
       const proxy = await vrpc.getInstance({ agent, className, instance })
       proxy._className = className
       for (const event of events) {
-        proxy.on(event, (...args) => {
+        await proxy.on(event, (...args) => {
           proxy[event] = args
         })
       }
@@ -102,7 +102,7 @@ class VrpcBackendMaker extends Component {
         })
         proxy._className = info.className
         for (const event of events) {
-          proxy.on(event, (...args) => {
+          await proxy.on(event, (...args) => {
             proxy[event] = args
           })
         }
