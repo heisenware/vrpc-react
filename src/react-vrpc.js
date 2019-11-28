@@ -73,6 +73,26 @@ class VrpcBackendMaker extends Component {
     this.setState({ vrpc, ...obj, vrpcIsLoading: false })
   }
 
+  async componentWillUnmount () {
+    const { backends } = this.prop
+    for (const [key, value] of Object.entries(backends)) {
+      const { events = [] } = value
+      if (events.length === 0) break
+      const proxies = this.props[key]
+      if (Array.isArray(proxies)) {
+        for (const proxy of proxies) {
+          for (const event of events) {
+            await proxy.removeListener(event)
+          }
+        }
+      } else {
+        for (const event of events) {
+          await proxies.removeListener(event)
+        }
+      }
+    }
+  }
+
   async _registerProxy (obj, key, agent, events, className, vrpc) {
     const instances = await vrpc.getAvailableInstances(className, agent)
     for (const instance of instances) {
