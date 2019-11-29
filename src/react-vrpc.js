@@ -98,11 +98,7 @@ class VrpcBackendMaker extends Component {
     for (const instance of instances) {
       const proxy = await vrpc.getInstance({ agent, className, instance })
       proxy._className = className
-      for (const event of events) {
-        await proxy.on(event, (...args) => {
-          proxy[event] = args
-        })
-      }
+      this._registerEvents(obj, key, proxy, events)
       obj[key].push(proxy)
     }
     vrpc.on('class', async (info) => {
@@ -121,15 +117,31 @@ class VrpcBackendMaker extends Component {
           instance
         })
         proxy._className = info.className
-        for (const event of events) {
-          await proxy.on(event, (...args) => {
-            proxy[event] = args
-          })
-        }
+        this._registerEvents(obj, key, proxy, events)
         updated.push(proxy)
       }
       this.setState({ [key]: updated })
     })
+  }
+
+  _registerEvents (obj, key, proxy, events) {
+    for (const event of events) {
+      proxy[event] = []
+      proxy.on(event, async (...args) => {
+        obj[key] = obj[key].filter(({ _targetId }) => proxy._targetId !== _targetId)
+        switch (args.length) {
+          case 0:
+            obj[key].push({ ...proxy, [event]: undefined })
+            break
+          case 1:
+            obj[key].push({ ...proxy, [event]: args[0] })
+            break
+          default:
+            obj[key].push({ ...proxy, [event]: args })
+        }
+        this.setState({ [key]: obj[key] })
+      })
+    }
   }
 
   render () {
