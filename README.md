@@ -16,7 +16,7 @@ const VrpcProvider = createVrpcProvider({
       agent: '<agentName>',
       className: '<className>',
       instance: '<instanceName>',
-      args: ['<constructorArgs>']
+      args: ['<constructorArg1>', '<constructorArg2>', ...]
     }
   },
 })
@@ -29,28 +29,50 @@ the `backends` property. Refer to them later simply by their name
 Think of `myBackend` as if it was a remotely available
 instance of the class you chose in the `className` property.
 
----
+Depending on your backend architecture *react-vrpc* allows you to:
+
+1.  Create an (anonymous) instance of a class
+
+    > define parameters: `agent`, `className`, `args`
+
+2.  Create (if not exists) and use a named instance of class
+
+    > define parameters: `agent`, `className`, `instance`, `args`
+
+3.  Use (never create) an existing named instance of a class
+
+    > define parameters: `agent`, `className`, `instance`
+
+4.  Use all named instances of a class
+
+    > define parameters: `agent`, `className`
+
+    In this case your backend object reflects an array of proxy instances, and
+    you can access their id using `<proxy>._id` member variable.
+
+    You may also combine instances of different classes by using
+    a regular expression in the `className` property. The class name of each
+    instances is accessible via the `<proxy>._className` member variable.
 
 > **TIP**
 >
-> For testing you can simply type:
+> If your backend instance is capable to emit events you can automatically
+> subscribe to those by configuring an additional `events` property:
 >
 > ```javascript
 > const VrpcProvider = createVrpcProvider({
 >   backends: {
->     myBackend: {
+>     myInstances: {
 >       agent: '<agentName>',
 >       className: '<className>',
->       args: ['<constructorArgs>']
+>       events: ['<eventName1>', '<eventName2>', ...]
 >     }
 >   },
 > })
 > ```
-> this will use the broker hosted by https://vrpc.io and the `public.vrpc` domain
-> which works without authentication.
-
-
----
+> Corresponding notifications will result in a component update (see below) and
+> the event payload is accessible via the `<proxy>.<eventName>` property.
+>
 
 ## Step 2 - Use the VrpcProvider
 
@@ -79,7 +101,7 @@ ReactDOM.render(
 import React from 'react'
 import { withVrpc } from 'react-vrpc'
 
-class YourComponent extends React.Component {
+class MyComponent extends React.Component {
 
   async componentDidMount () {
     const { myBackend, vrpc } = this.props
@@ -87,10 +109,9 @@ class YourComponent extends React.Component {
   }
 }
 
-export default withVrpc(YourComponent)
+export default withVrpc(MyComponent)
 ```
 
----
 > **NOTE 1**
 >
 > Optionally, you can use the `vrpc` object which reflects the remote proxy
@@ -101,13 +122,46 @@ export default withVrpc(YourComponent)
 > Always use `await` as all VRPC calls need to travel the network and are
 > asynchronous by default. If the backend function you are calling is
 > `async` itself, simply add a second `await`, like so:
->
-> `const ret = await await myBackend.anAsyncBackendFunction('test')`
->
+>  ```javascript
+> const ret = await await myBackend.anAsyncBackendFunction('test')
+> ```
 > You can use simple `try/catch` statements, VRPC forwards potential exceptions
 > on the backend for you.
 
----
 
 For all details, please visit: https://vrpc.io, or
 https://github.com/bheisen/vrpc
+
+
+## Step 4 - Update component upon backend changes
+
+This step is optional and typically only needed if you configured your
+backend to reflect an array of instances (see point 4 of potential usages).
+
+There are two reasons why such an update may be triggered:
+
+1.  The number of instances changed (reduced or increased)
+2.  An event was emitted by one of the instances and the corresponding
+    value of the `<proxy>.<eventName>` member changed.
+
+For both cases you can use the `componentDidUpdate(prevProps)` life-cycle
+method of react:
+
+```javascript
+async componentDidUpdate(prevProps) {
+  // myInstances reflects a backend with multiple instances
+  const { myInstances } = this.props
+  const prevInstances = prevProps.myInstances
+  if (prevInstances.length !== myInstances.length) {
+    // update needed, i.e. call setState in this component
+  } else {
+    // let 'state' be a subscribed event
+    const changed = prevInstances.filter(({ state }, index) => (
+      state !== myInstances[index].state
+    ))
+    if (changed.length > 0) {
+      // updated needed, at least on state change detected
+    }
+  }
+}
+```
