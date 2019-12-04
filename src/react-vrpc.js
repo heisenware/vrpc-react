@@ -126,7 +126,7 @@ class VrpcBackendMaker extends Component {
 
   _registerEvents (obj, key, proxy, events) {
     for (const event of events) {
-      proxy[event] = []
+      proxy[event] = null
       proxy.on(event, async (...args) => {
         obj[key] = obj[key].filter(({ _targetId }) => proxy._targetId !== _targetId)
         switch (args.length) {
