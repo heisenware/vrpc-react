@@ -74,7 +74,7 @@ class VrpcBackendMaker extends Component {
   }
 
   async componentWillUnmount () {
-    const { backends } = this.prop
+    const { backends } = this.props
     for (const [key, value] of Object.entries(backends)) {
       const { events = [] } = value
       if (events.length === 0) break
