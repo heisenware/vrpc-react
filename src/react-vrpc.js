@@ -8,7 +8,13 @@ export function createVrpcProvider ({
   broker = 'wss://vrpc.io/mqtt',
   backends
 }) {
-  return function VrpcProvider ({ children, username, password, token }) {
+  return function VrpcProvider ({
+    children,
+    username,
+    password,
+    token,
+    unauthorizedErrorCallback
+  }) {
     return (
       <VrpcBackendMaker
         backends={backends}
@@ -17,6 +23,7 @@ export function createVrpcProvider ({
         domain={domain}
         username={username}
         password={password}
+        unauthorizedErrorCallback={unauthorizedErrorCallback}
       >
         {children}
       </VrpcBackendMaker>
@@ -27,7 +34,9 @@ export function createVrpcProvider ({
 class VrpcBackendMaker extends Component {
   constructor () {
     super()
-    this.state = { vrpcIsLoading: true }
+    this.state = {
+      vrpcIsLoading: true
+    }
   }
 
   async componentDidMount () {
@@ -37,10 +46,25 @@ class VrpcBackendMaker extends Component {
       token,
       domain,
       username,
-      password
+      password,
+      unauthorizedErrorCallback
     } = this.props
 
     const vrpc = new VrpcRemote({ broker, token, domain, username, password })
+
+    // handle exception for unauthorized clients, to be removed in future when
+    // VRPC node handles these exceptions
+    vrpc._client.on('error', err => {
+      if (unauthorizedErrorCallback &&
+          err &&
+          err.message &&
+          err.message.includes('Not authorized')
+      ) {
+        unauthorizedErrorCallback()
+      } else {
+        throw err
+      }
+    })
 
     await vrpc.connected()
     const obj = {}
