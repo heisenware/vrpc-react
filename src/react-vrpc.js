@@ -187,7 +187,7 @@ export function withVrpc (PassedComponent, mapVrpcToProps) {
       return (
         <VrpcContext.Consumer>
           {vrpcInfo => {
-            const vrpcProps = mapVrpcToProps ? mapVrpcToProps(vrpcInfo) : vrpcInfo
+            const vrpcProps = mapVrpcToProps ? mapVrpcToProps(vrpcInfo, this.props) : vrpcInfo
             return (
               <PassedComponent {...this.props} {...vrpcProps} />
             )
