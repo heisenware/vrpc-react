@@ -58,7 +58,7 @@ class VrpcBackendMaker extends Component {
       if (unauthorizedErrorCallback &&
           err &&
           err.message &&
-          err.message.includes('Not authorized')
+          err.message.toLowerCase().includes('not authorized')
       ) {
         unauthorizedErrorCallback()
       } else {
