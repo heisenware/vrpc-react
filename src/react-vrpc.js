@@ -182,14 +182,16 @@ class VrpcBackendMaker extends Component {
 }
 
 export function withVrpc (PassedComponent, mapVrpcToProps) {
-  const props = mapVrpcToProps ? mapVrpcToProps(this.props) : this.props
   return class ComponentWithVrpc extends Component {
     render () {
       return (
         <VrpcContext.Consumer>
-          {vrpcInfo => (
-            <PassedComponent {...props} {...vrpcInfo} />
-          )}
+          {vrpcInfo => {
+            const vrpcProps = mapVrpcToProps ? mapVrpcToProps(vrpcInfo) : vrpcInfo
+            return (
+              <PassedComponent {...this.props} {...vrpcProps} />
+            )
+          }}
         </VrpcContext.Consumer>
       )
     }
