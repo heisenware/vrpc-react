@@ -128,6 +128,16 @@ export default withVrpc(MyComponent)
 > You can use simple `try/catch` statements, VRPC forwards potential exceptions
 > on the backend for you.
 
+> **NOTE 3**
+>
+> You may select only one or a subset of your backends for a specific component.
+> Simply provide a string or an array of strings specifying the
+> corresponding backends as first argument of the `withVrpc` function.
+> ```javascript
+> export default withVrpc('backend1', MyComponent)
+> ```
+> This will limit the re-rendering of `MyComponent` solely to changes observed
+> in `backend1` drastically improving performance when using several backends.
 
 For all details, please visit: https://vrpc.io, or
 https://github.com/bheisen/vrpc

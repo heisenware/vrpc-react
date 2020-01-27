@@ -1,13 +1,20 @@
 import React, { Component } from 'react'
 import { VrpcRemote } from 'vrpc'
 
-const VrpcContext = React.createContext()
+const vrpcGlobalContext = React.createContext()
+const vrpcContexts = []
 
 export function createVrpcProvider ({
   domain = 'public.vrpc',
   broker = 'wss://vrpc.io/mqtt',
   backends
 }) {
+  for (const key of Object.keys(backends)) {
+    // Create context for this backend
+    const context = React.createContext()
+    context.displayName = key
+    vrpcContexts.push(context)
+  }
   return function VrpcProvider ({
     children,
     username,
@@ -34,9 +41,7 @@ export function createVrpcProvider ({
 class VrpcBackendMaker extends Component {
   constructor () {
     super()
-    this.state = {
-      vrpcIsLoading: true
-    }
+    this.state = { __global__: { vrpcIsLoading: true } }
   }
 
   async componentDidMount () {
@@ -70,31 +75,32 @@ class VrpcBackendMaker extends Component {
     const obj = {}
     for (const [key, value] of Object.entries(backends)) {
       const { agent, className, instance, args, events = [] } = value
+      obj[key] = {}
       if (instance) {
         if (args) { // use specific instance and create if not exists
-          obj[key] = await vrpc.create({ agent, className, instance, args })
+          obj[key][key] = await vrpc.create({ agent, className, instance, args })
         } else { // use specific instance
-          obj[key] = await vrpc.getInstance({ agent, className, instance })
+          obj[key][key] = await vrpc.getInstance({ agent, className, instance })
         }
       } else {
         if (args) { // create anonymous/private instance
-          obj[key] = await vrpc.create({ agent, className, args })
+          obj[key][key] = await vrpc.create({ agent, className, args })
         } else { // observe an array of existing instances
-          obj[key] = []
+          obj[key][key] = []
           if (typeof className === 'object') {
             const classNames = await vrpc.getAvailableClasses(agent)
             for (const name of classNames) {
               if (name.match(className)) {
-                await this._registerProxy(obj, key, agent, events, name, vrpc)
+                await this._registerProxy(obj[key], key, agent, events, name, vrpc)
               }
             }
           } else {
-            await this._registerProxy(obj, key, agent, events, className, vrpc)
+            await this._registerProxy(obj[key], key, agent, events, className, vrpc)
           }
         }
       }
     }
-    this.setState({ vrpc, ...obj, vrpcIsLoading: false })
+    this.setState({ ...obj, __global__: { vrpc, vrpcIsLoading: false } })
   }
 
   async componentWillUnmount () {
@@ -127,10 +133,10 @@ class VrpcBackendMaker extends Component {
     }
     vrpc.on('class', async (info) => {
       if (info.agent !== agent || info.className !== className) return
-      const currentIds = this.state[key].map(x => x._targetId)
+      const currentIds = this.state[key][key].map(x => x._targetId)
       const removed = currentIds.filter(x => !info.instances.includes(x))
       const added = info.instances.filter(x => !currentIds.includes(x))
-      const current = this.state[key]
+      const current = this.state[key][key]
       const updated = current.filter(proxy => {
         return !removed.includes(proxy._targetId)
       })
@@ -144,7 +150,7 @@ class VrpcBackendMaker extends Component {
         this._registerEvents(obj, key, proxy, events)
         updated.push(proxy)
       }
-      this.setState({ [key]: updated })
+      this.setState({ [key]: { [key]: updated } })
     })
   }
 
@@ -163,37 +169,106 @@ class VrpcBackendMaker extends Component {
           default:
             obj[key].push({ ...proxy, [event]: args })
         }
-        this.setState({ [key]: obj[key] })
+        this.setState({ [key]: { ...obj } })
       })
     }
   }
 
+  _renderProviders (children, index = 0) {
+    const Context = vrpcContexts[index]
+    const Provider = Context.Provider
+    if (index === 0) {
+      return (
+        <vrpcGlobalContext.Provider value={this.state.__global__}>
+          <Provider value={this.state[Context.displayName]}>
+            {this._renderProviders(children, index + 1)}
+          </Provider>
+        </vrpcGlobalContext.Provider>
+      )
+    }
+    if (index < vrpcContexts.length - 1) {
+      return (
+        <Provider value={this.state[Context.displayName]}>
+          {this._renderProviders(children, index + 1)}
+        </Provider>
+      )
+    }
+    return (
+      <Provider value={this.state[Context.displayName]}>
+        {children}
+      </Provider>
+    )
+  }
+
   render () {
     const { loading } = this.props
-    const { vrpcIsLoading } = this.state
+    const { vrpcIsLoading } = this.state.__global__
     if (vrpcIsLoading) return loading || false
     const { children } = this.props
-    return (
-      <VrpcContext.Provider value={this.state}>
-        {children}
-      </VrpcContext.Provider>
-    )
+    return this._renderProviders(children)
   }
 }
 
-export function withVrpc (PassedComponent, mapVrpcToProps) {
+export function withVrpc (
+  backendsOrPassedComponent,
+  PassedComponent
+) {
+  let backends
+  if (typeof backendsOrPassedComponent === 'string') {
+    backends = [backendsOrPassedComponent]
+  } else if (Array.isArray(backendsOrPassedComponent)) {
+    backends = backendsOrPassedComponent
+  } else {
+    backends = vrpcContexts.map(x => x.displayName)
+    PassedComponent = backendsOrPassedComponent
+  }
+
   return class ComponentWithVrpc extends Component {
-    render () {
+    _renderConsumers (PassedComponent, backends, props, index = 0) {
+      const Context = vrpcContexts.find(x => x.displayName === backends[index])
+      if (!Context) return <PassedComponent {...props} />
+      const Consumer = Context.Consumer
+      if (index === 0) {
+        return (
+          <vrpcGlobalContext.Consumer>
+            {globalProps => (
+              <Consumer>
+                {vrpcProps => (
+                  this._renderConsumers(
+                    PassedComponent,
+                    backends,
+                    { ...props, ...globalProps, ...vrpcProps },
+                    index + 1
+                  )
+                )}
+              </Consumer>
+            )}
+          </vrpcGlobalContext.Consumer>
+        )
+      }
+      if (index < backends.length - 1) {
+        return (
+          <Consumer>
+            {vrpcProps => (
+              this._renderConsumers(
+                PassedComponent,
+                backends,
+                { ...props, ...vrpcProps },
+                index + 1
+              )
+            )}
+          </Consumer>
+        )
+      }
       return (
-        <VrpcContext.Consumer>
-          {vrpcInfo => {
-            const vrpcProps = mapVrpcToProps ? mapVrpcToProps(vrpcInfo, this.props) : vrpcInfo
-            return (
-              <PassedComponent {...this.props} {...vrpcProps} />
-            )
-          }}
-        </VrpcContext.Consumer>
+        <Consumer>
+          {vrpcProps => <PassedComponent {...props} {...vrpcProps} />}
+        </Consumer>
       )
+    }
+
+    render () {
+      return this._renderConsumers(PassedComponent, backends, this.props)
     }
   }
 }
