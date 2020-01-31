@@ -174,30 +174,24 @@ class VrpcBackendMaker extends Component {
     }
   }
 
-  _renderProviders (children, index = 0) {
-    const Context = vrpcContexts[index]
-    const Provider = Context.Provider
-    if (index === 0) {
+  _renderProviders (children, index = -1) {
+    if (index === -1) {
       return (
         <vrpcGlobalContext.Provider value={this.state.__global__}>
-          <Provider value={this.state[Context.displayName]}>
-            {this._renderProviders(children, index + 1)}
-          </Provider>
+          {this._renderProviders(children, index + 1)}
         </vrpcGlobalContext.Provider>
       )
     }
-    if (index < vrpcContexts.length - 1) {
+    if (index < vrpcContexts.length) {
+      const Context = vrpcContexts[index]
+      const Provider = Context.Provider
       return (
         <Provider value={this.state[Context.displayName]}>
           {this._renderProviders(children, index + 1)}
         </Provider>
       )
     }
-    return (
-      <Provider value={this.state[Context.displayName]}>
-        {children}
-      </Provider>
-    )
+    return children
   }
 
   render () {
@@ -219,34 +213,29 @@ export function withVrpc (
   } else if (Array.isArray(backendsOrPassedComponent)) {
     backends = backendsOrPassedComponent
   } else {
-    backends = vrpcContexts.map(x => x.displayName)
     PassedComponent = backendsOrPassedComponent
   }
 
   return class ComponentWithVrpc extends Component {
-    _renderConsumers (PassedComponent, backends, props, index = 0) {
-      const Context = vrpcContexts.find(x => x.displayName === backends[index])
-      if (!Context) return <PassedComponent {...props} />
-      const Consumer = Context.Consumer
-      if (index === 0) {
+    _renderConsumers (PassedComponent, backends, props, index = -1) {
+      if (index === -1) {
         return (
           <vrpcGlobalContext.Consumer>
             {globalProps => (
-              <Consumer>
-                {vrpcProps => (
-                  this._renderConsumers(
-                    PassedComponent,
-                    backends,
-                    { ...props, ...globalProps, ...vrpcProps },
-                    index + 1
-                  )
-                )}
-              </Consumer>
+              this._renderConsumers(
+                PassedComponent,
+                backends,
+                { ...props, ...globalProps },
+                index + 1
+              )
             )}
           </vrpcGlobalContext.Consumer>
         )
       }
-      if (index < backends.length - 1) {
+      if (index < backends.length) {
+        const Context = vrpcContexts.find(x => x.displayName === backends[index])
+        if (!Context) return <PassedComponent {...props} />
+        const Consumer = Context.Consumer
         return (
           <Consumer>
             {vrpcProps => (
@@ -260,14 +249,11 @@ export function withVrpc (
           </Consumer>
         )
       }
-      return (
-        <Consumer>
-          {vrpcProps => <PassedComponent {...props} {...vrpcProps} />}
-        </Consumer>
-      )
+      return <PassedComponent {...props} />
     }
 
     render () {
+      if (!backends) backends = vrpcContexts.map(x => x.displayName)
       return this._renderConsumers(PassedComponent, backends, this.props)
     }
   }
