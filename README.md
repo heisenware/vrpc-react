@@ -1,4 +1,5 @@
 # react-vrpc
+
 React wrapper around the [vrpc](https://github.com/bheisen/vrpc) library
 
 ## Step 1 - Create VrpcProvider
@@ -31,19 +32,19 @@ instance of the class you chose in the `className` property.
 
 Depending on your backend architecture *react-vrpc* allows you to:
 
-1.  Create an (anonymous) instance of a class
+1. Create an (anonymous) instance of a class
 
     > define parameters: `agent`, `className`, `args`
 
-2.  Create (if not exists) and use a named instance of class
+2. Create (if not exists) and use a named instance of class
 
     > define parameters: `agent`, `className`, `instance`, `args`
 
-3.  Use (never create) an existing named instance of a class
+3. Use (never create) an existing named instance of a class
 
     > define parameters: `agent`, `className`, `instance`
 
-4.  Use all named instances of a class
+4. Use all named instances of a class
 
     > define parameters: `agent`, `className`
 
@@ -70,6 +71,7 @@ Depending on your backend architecture *react-vrpc* allows you to:
 >   },
 > })
 > ```
+>
 > Corresponding notifications will result in a component update (see below) and
 > the event payload is accessible via the `<proxy>.<eventName>` property.
 >
@@ -112,26 +114,23 @@ class MyComponent extends React.Component {
 export default withVrpc(MyComponent)
 ```
 
-> **NOTE 1**
+> **NOTE**
 >
-> Optionally, you can use the `vrpc` object which reflects the remote proxy
-> instance.
-
-> **NOTE 2**
+> You can restrict the backends available on your component (and hence the
+> amount of re-renders when they change) by specifying and individual one:
 >
-> Always use `await` as all VRPC calls need to travel the network and are
-> asynchronous by default. If the backend function you are calling is
-> `async` itself, simply add a second `await`, like so:
->  ```javascript
-> const ret = await await myBackend.anAsyncBackendFunction('test')
+> ```javascript
+> export default withVrpc(myBackend, MyComponent)
 > ```
-> You can use simple `try/catch` statements, VRPC forwards potential exceptions
-> on the backend for you.
+>
+> or any subset of backends using and array notation:
+>
+> ```javascript
+> export default withVrpc([myBackend1, myBackend3], MyComponent)
+> ```
 
-
-For all details, please visit: https://vrpc.io, or
-https://github.com/bheisen/vrpc
-
+No matter what you do, the property `vrpc` reflecting the remote client
+is always available (and e.g. needed for static calls).
 
 ## Step 4 - Update component upon backend changes
 
@@ -140,8 +139,8 @@ backend to reflect an array of instances (see point 4 of potential usages).
 
 There are two reasons why such an update may be triggered:
 
-1.  The number of instances changed (reduced or increased)
-2.  An event was emitted by one of the instances and the corresponding
+1. The number of instances changed (reduced or increased)
+2. An event was emitted by one of the instances and the corresponding
     value of the `<proxy>.<eventName>` member changed.
 
 For both cases you can use the `componentDidUpdate(prevProps)` life-cycle

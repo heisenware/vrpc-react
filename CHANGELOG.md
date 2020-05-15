@@ -1,12 +1,28 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+
+### Added
+
+- possibility to select individual backends per component
+
+### Changed
+
+- organization of inner state and its provisioning
+
+### Fixed
+
+- several issues regarding stability while refreshing-page or re-loading the
+  backend
+
 ## [0.9.2]
 
-## Fixed
+### Fixed
 
 - fixed broken componentWillUnmount
 
@@ -21,7 +37,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - added streamlined ability to have multi backends with different options
 - added ability to use vrpc object directly
 - added support for backend events to passed to frontend
-
 
 ## [0.9.0]
 

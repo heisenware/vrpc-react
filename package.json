@@ -2,8 +2,9 @@
   "name": "react-vrpc",
   "version": "0.9.6",
   "description": "React wrapper around the vrpc library",
-  "repository": "https://github.com/JacobTheEvans/react-vrpc",
-  "author": "Jacob Evans",
+  "repository": "https://github.com/heisenware/react-vrpc",
+  "author": "Burkhard Heisen <burkhard.heisen@heisenware.com>",
+  "homepage": "https://vrpc.io",
   "main": "lib/index.js",
   "license": "Apache-2.0",
   "keywords": [
