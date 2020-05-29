@@ -4,6 +4,10 @@
   "description": "React wrapper around the vrpc library",
   "repository": "https://github.com/heisenware/react-vrpc",
   "author": "Burkhard Heisen <burkhard.heisen@heisenware.com>",
+  "contributors": [
+    "Jacob Evans",
+    "Benjamin Joham"
+  ],
   "homepage": "https://vrpc.io",
   "main": "lib/index.js",
   "license": "Apache-2.0",
@@ -14,6 +18,9 @@
     "Remote Procedural Calls"
   ],
   "dependencies": {},
+  "peerDependencies": {
+    "vrpc": "^2.1.2"
+  },
   "devDependencies": {
     "autoprefixer": "7.1.6",
     "babel-core": "6.26.0",
