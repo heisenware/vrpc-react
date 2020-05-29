@@ -1,6 +1,6 @@
 {
   "name": "react-vrpc",
-  "version": "0.9.6",
+  "version": "0.10.0",
   "description": "React wrapper around the vrpc library",
   "repository": "https://github.com/heisenware/react-vrpc",
   "author": "Burkhard Heisen <burkhard.heisen@heisenware.com>",
