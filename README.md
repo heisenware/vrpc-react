@@ -118,11 +118,11 @@ export default MyComponent
 but we support class components as well.
 
 In this case backends are injected as regular props when using the
-`withVrpc` component-wrapper function:
+`withBackend` component-wrapper function:
 
 ```javascript
 import React from 'react'
-import { withVrpc } from 'react-vrpc'
+import { withBackend } from 'react-vrpc'
 
 class MyComponent extends React.Component {
 
@@ -132,7 +132,7 @@ class MyComponent extends React.Component {
   }
 }
 
-export default withVrpc('myBackend', MyComponent)
+export default withBackend('myBackend', MyComponent)
 ```
 
 As you can see from the code snippets, your backend gets injected as an
@@ -153,19 +153,19 @@ object which provides the following properties:
 > Use a single backend by writing:
 >
 > ```javascript
-> export default withVrpc('myBackend', MyComponent)
+> export default withBackend('myBackend', MyComponent)
 > ```
 >
 > or any subset of backends utilizing an array:
 >
 > ```javascript
-> export default withVrpc(['myBackend1', 'myBackend3'], MyComponent)
+> export default withBackend(['myBackend1', 'myBackend3'], MyComponent)
 > ```
 >
 > or load all available backends by omitting the argument:
 >
 > ```javascript
-> export default withVrpc(MyComponent)
+> export default withBackend(MyComponent)
 > ```
 
 ### Access the VRPC client in your component
@@ -181,7 +181,7 @@ You can do so using the hook `useClient` which provides the properties:
 | `loading`| *boolean*      | indicates asynchronous activity
 | `error`  | *error object* | any network or client issues
 
-Or access the property `vrpc` that is always injected by the `withVrpc` function
+Or access the property `vrpc` that is always injected by the `withBackend` function
 providing the same properties as described above.
 
 ### Good to know

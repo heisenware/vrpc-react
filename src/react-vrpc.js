@@ -249,6 +249,13 @@ export function withVrpc (
   backendsOrPassedComponent,
   PassedComponent
 ) {
+  return withBackend(backendsOrPassedComponent, PassedComponent)
+}
+
+export function withBackend (
+  backendsOrPassedComponent,
+  PassedComponent
+) {
   let backends
   if (typeof backendsOrPassedComponent === 'string') {
     backends = [backendsOrPassedComponent]
