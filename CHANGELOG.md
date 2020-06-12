@@ -10,10 +10,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - possibility to select individual backends per component
+- hook based API
+- possibility to refresh all components using a specific backend
 
 ### Changed
 
 - organization of inner state and its provisioning
+- the value of the inject backend, now reflecting an object
+- the way how backends are loaded (lazy loading, never blocking)
+- error handling
 
 ### Fixed
 

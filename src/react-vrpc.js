@@ -1,8 +1,9 @@
-import React, { Component } from 'react'
+import React, { Component, useContext, useState, useEffect } from 'react'
 import { VrpcRemote } from 'vrpc'
 
-const vrpcGlobalContext = React.createContext()
-const vrpcContexts = []
+const vrpcClientContext = React.createContext()
+const vrpcBackendContexts = []
+const dynamicBackends = new Set()
 
 export function createVrpcProvider ({
   domain = 'public.vrpc',
@@ -13,14 +14,13 @@ export function createVrpcProvider ({
     // Create context for this backend
     const context = React.createContext()
     context.displayName = key
-    vrpcContexts.push(context)
+    vrpcBackendContexts.push(context)
   }
   return function VrpcProvider ({
     children,
     username,
     password,
-    token,
-    unauthorizedErrorCallback
+    token
   }) {
     return (
       <VrpcBackendMaker
@@ -30,7 +30,6 @@ export function createVrpcProvider ({
         domain={domain}
         username={username}
         password={password}
-        unauthorizedErrorCallback={unauthorizedErrorCallback}
       >
         {children}
       </VrpcBackendMaker>
@@ -41,7 +40,14 @@ export function createVrpcProvider ({
 class VrpcBackendMaker extends Component {
   constructor () {
     super()
-    this.state = { __global__: { vrpcIsLoading: true } }
+    this.state = {
+      initializing: true,
+      vrpc: { client: null, loading: true, error: null }
+    }
+    this.refresh = (key) => this.setState(prevState => {
+      const backend = { ...prevState[key][key].backend }
+      return { [key]: { [key]: { ...prevState[key][key], backend } } }
+    })
   }
 
   async componentDidMount () {
@@ -51,136 +57,158 @@ class VrpcBackendMaker extends Component {
       token,
       domain,
       username,
-      password,
-      unauthorizedErrorCallback
+      password
     } = this.props
-    const vrpc = new VrpcRemote({ broker, token, domain, username, password })
 
-    vrpc.on('error', err => {
-      if (unauthorizedErrorCallback &&
-          err &&
-          err.message &&
-          err.message.toLowerCase().includes('not authorized')
-      ) {
-        unauthorizedErrorCallback()
-      } else {
-        throw err
-      }
-    })
+    try {
+      const client = new VrpcRemote({ broker, token, domain, username, password })
 
-    this._initializeBackendStates(backends)
+      client.on('error', err => {
+        this.setState({ vrpc: { client: null, loading: false, error: err } })
+      })
 
-    await vrpc.connect()
+      this.initializeBackendStates(backends, client)
 
-    vrpc.on('instanceNew', async (added, { agent, className }) => {
-      if (!className) return
-      const keys = this._filterBackends(className, backends)
-      for (const key of keys) {
-        const { args, instance, events } = backends[key]
-        // This backend manages the lifetime of its proxy itself
-        if (args || (instance && this.state.__global__.vrpcIsLoading)) continue
-        const proxies = []
-        for (const instance of added) {
-          try {
-            const proxy = await vrpc.getInstance(instance, { className, agent })
-            proxy._className = className
+      await client.connect()
+
+      client.on('instanceNew', async (added, { className }) => {
+        if (!className) return
+        const keys = this.filterBackends(className, backends)
+        for (const key of keys) {
+          const { agent, instance, args } = backends[key]
+          // This backend manages the lifetime of its instance itself
+          if (args) continue
+          // This backend needs explicitly this instance
+          if (instance) {
             try {
-              if (events) await this._registerEvents(key, proxy, events)
+              const backend = await client.getInstance(instance, { className, agent, domain })
+              this.setBackendState(key, backend, false, null)
             } catch (err) {
-              console.error(`Failed registering event(s): ${events} on instance: ${instance} because: ${err.message}`)
+              console.error(`Could not attach to backend instance '${instance}', because: ${err.message}`)
+              this.setBackendState(key, null, false, err)
             }
-            proxies.push(proxy)
-          } catch (err) {
-            console.error(`Failed connecting to instance: ${instance} because: ${err.message}`)
+            // This backend is interested in a specific set of instances
+          } else {
+            this.setState(prevState => {
+              const { backend, loading, error, refresh } = prevState[key][key]
+              if (backend && backend.ids) {
+                backend.ids = [...new Set([...backend.ids, ...added])]
+              }
+              return { [key]: { [key]: { backend, loading, error, refresh } } }
+            })
           }
         }
-        this.setState(prevState => ({ [key]: { [key]: [...prevState[key][key], ...proxies] } }))
-      }
-    })
+      })
 
-    vrpc.on('instanceGone', async (removed, { agent, className }) => {
-      if (!className) return
-      const keys = this._filterBackends(className, backends)
-      for (const key of keys) {
-        const { instance, args } = backends[key]
-        // This backend manages the lifetime of its proxy itself
-        if (args) continue
-        // Available instance is used by this backend
-        if (instance && this.state[key][key] && removed.includes(instance)) {
-          console.warn(`Lost instance ${instance} for backend: ${key}`)
-          this.setState({ [key]: { [key]: undefined } })
-          continue
+      client.on('instanceGone', async (gone, { className }) => {
+        if (!className) return
+        const keys = this.filterBackends(className, backends)
+        for (const key of keys) {
+          const { instance, args } = backends[key]
+          // This backend manages the lifetime of its proxy itself
+          if (args) continue
+          // Available instance is used by this backend
+          if (instance && this.state[key][key] && gone.includes(instance)) {
+            console.warn(`Lost instance '${instance}' for backend: ${key}`)
+            this.setBackendState(key, null, true, null)
+            continue
+          }
+          // Delete all previously cached dynamic backends
+          gone.forEach(x => dynamicBackends.delete(x))
+          this.setState(prevState => {
+            const { backend, loading, error, refresh } = prevState[key][key]
+            if (backend && backend.ids) {
+              backend.ids = backend.ids.filter(x => !gone.includes(x))
+            }
+            return { [key]: { [key]: { backend, loading, error, refresh } } }
+          })
         }
-        this.setState(prevState => {
-          const proxies = prevState[key][key].filter(x => !removed.includes(x._targetId))
-          return { [key]: { [key]: proxies } }
-        })
-      }
-    })
-    await this._createRequiredProxies(domain, backends, vrpc)
-    this._initializeGlobalState(vrpc)
-  }
+      })
 
-  async componentWillUnmount () {
-    const { backends } = this.props
-    for (const [key, value] of Object.entries(backends)) {
-      const { events = [] } = value
-      if (events.length === 0) break
-      const proxies = this.props[key]
-      if (Array.isArray(proxies)) {
-        for (const proxy of proxies) {
-          for (const event of events) {
-            await proxy.removeListener(event)
+      client.on('agent', async ({ agent, status }) => {
+        for (const [k, v] of Object.entries(backends)) {
+          if (v.agent === agent) {
+            if (status === 'offline') {
+              console.warn(`Lost agent '${agent}' that is required for backend: ${k}`)
+              const error = new Error(`Required agent '${agent}' is offline`)
+              if (!v.instance && !v.args) {
+                const backend = this.state[k][k].backend
+                backend.ids = []
+                this.setBackendState(k, backend, false, error)
+              } else {
+                this.setBackendState(k, null, false, error)
+              }
+            } else if (status === 'online') {
+              if (v.args) {
+                try {
+                  const backend = await client.create({
+                    agent: v.agent,
+                    className: v.className,
+                    instance: v.instance,
+                    args: v.args
+                  })
+                  console.log(`Created instance '${v.instance || '<anonymous>'}' for: backend ${k}`)
+                  this.setBackendState(k, backend, false, null)
+                } catch (err) {
+                  console.warn(`Could not create instance '${v.instance || '<anonymous>'}' for backend '${k}' because: ${err.message}`)
+                  this.setBackendState(k, null, false, err)
+                }
+              } else if (v.instance) {
+                this.setBackendState(k, null, false, null)
+              } else {
+                const backend = this.state[k][k].backend
+                this.setBackendState(k, backend, false, null)
+              }
+            }
           }
         }
-      } else {
-        for (const event of events) {
-          await proxies.removeListener(event)
-        }
-      }
+      })
+
+      console.log('VRPC client is connected')
+      this.setState({ vrpc: { client, loading: false, error: null } })
+    } catch (err) {
+      console.error(`VRPC client failed to connect because: ${err.message}`)
+      this.setState({ vrpc: { client: null, loading: false, error: err } })
     }
   }
 
-  _initializeBackendStates (backends) {
+  setBackendState (key, backend, loading, error) {
+    this.setState({
+      [key]: {
+        [key]: {
+          backend,
+          loading,
+          error,
+          refresh: (backendName = key) => this.refresh(backendName)
+        }
+      }
+    })
+  }
+
+  initializeBackendStates (backends, client) {
     const obj = {}
     Object.keys(backends).forEach(key => {
       if (!backends[key].instance && !backends[key].args) {
-        obj[key] = { [key]: [] }
+        const { agent, className: backendClassName } = backends[key]
+        const backend = {
+          create: async (id, { args, className }) => client.create({
+            agent,
+            className: className || backendClassName,
+            args,
+            instance: id
+          }),
+          delete: async (id) => client.delete(id, { agent }),
+          ids: []
+        }
+        obj[key] = { [key]: { backend, loading: false, error: null } }
       } else {
-        obj[key] = { [key]: undefined }
+        obj[key] = { [key]: { backend: null, loading: true, error: null } }
       }
     })
-    this.setState(obj)
+    this.setState({ ...obj, initializing: false })
   }
 
-  _initializeGlobalState (vrpc) {
-    this.setState({ __global__: { vrpc, vrpcIsLoading: false } })
-  }
-
-  async _createRequiredProxies (domain, backends, vrpc) {
-    for (const [key, value] of Object.entries(backends)) {
-      const { agent, className, instance, args } = value
-      if (args) {
-        try {
-          const proxy = await vrpc.create({ agent, className, instance, args })
-          this.setState({ [key]: { [key]: proxy } })
-        } catch (err) {
-          console.warn(`Could not create backend ${key} because: ${err.message}`)
-        }
-      } else if (instance) {
-        try {
-          // NOTE: This uses VRPC's old API by purpose. The new API has a bug
-          // here which leads to an override of the explicit domain set here
-          const proxy = await vrpc.getInstance({ instance, className, agent, domain })
-          this.setState({ [key]: { [key]: proxy } })
-        } catch (err) {
-          console.error(`Could not attach to backend instance ${instance}, because: ${err.message}`)
-        }
-      }
-    }
-  }
-
-  _filterBackends (className, backends) {
+  filterBackends (className, backends) {
     const ret = []
     for (const [k, v] of Object.entries(backends)) {
       if (typeof v.className === 'string' && v.className === className) ret.push(k)
@@ -189,40 +217,20 @@ class VrpcBackendMaker extends Component {
     return ret
   }
 
-  async _registerEvents (key, proxy, events) {
-    for (const event of events) {
-      proxy[event] = null
-      await proxy.on(event, async (...args) => {
-        const proxies = this.state[key][key].filter(({ _targetId }) => proxy._targetId !== _targetId)
-        switch (args.length) {
-          case 0:
-            proxies.push({ ...proxy, [event]: undefined })
-            break
-          case 1:
-            proxies.push({ ...proxy, [event]: args[0] })
-            break
-          default:
-            proxies.push({ ...proxy, [event]: args })
-        }
-        this.setState({ [key]: { [key]: proxies } })
-      })
-    }
-  }
-
-  _renderProviders (children, index = -1) {
+  renderProviders (children, index = -1) {
     if (index === -1) {
       return (
-        <vrpcGlobalContext.Provider value={this.state.__global__}>
-          {this._renderProviders(children, index + 1)}
-        </vrpcGlobalContext.Provider>
+        <vrpcClientContext.Provider value={this.state.vrpc}>
+          {this.renderProviders(children, index + 1)}
+        </vrpcClientContext.Provider>
       )
     }
-    if (index < vrpcContexts.length) {
-      const Context = vrpcContexts[index]
+    if (index < vrpcBackendContexts.length) {
+      const Context = vrpcBackendContexts[index]
       const Provider = Context.Provider
       return (
         <Provider value={this.state[Context.displayName]}>
-          {this._renderProviders(children, index + 1)}
+          {this.renderProviders(children, index + 1)}
         </Provider>
       )
     }
@@ -230,11 +238,10 @@ class VrpcBackendMaker extends Component {
   }
 
   render () {
-    const { loading } = this.props
-    const { vrpcIsLoading } = this.state.__global__
-    if (vrpcIsLoading) return loading || false
     const { children } = this.props
-    return this._renderProviders(children)
+    const { initializing } = this.state
+    if (initializing) return null
+    return this.renderProviders(children)
   }
 }
 
@@ -252,29 +259,29 @@ export function withVrpc (
   }
 
   return class ComponentWithVrpc extends Component {
-    _renderConsumers (PassedComponent, backends, props, index = -1) {
+    renderConsumers (PassedComponent, backends, props, index = -1) {
       if (index === -1) {
         return (
-          <vrpcGlobalContext.Consumer>
+          <vrpcClientContext.Consumer>
             {globalProps => (
-              this._renderConsumers(
+              this.renderConsumers(
                 PassedComponent,
                 backends,
                 { ...props, ...globalProps },
                 index + 1
               )
             )}
-          </vrpcGlobalContext.Consumer>
+          </vrpcClientContext.Consumer>
         )
       }
       if (index < backends.length) {
-        const Context = vrpcContexts.find(x => x.displayName === backends[index])
+        const Context = vrpcBackendContexts.find(x => x.displayName === backends[index])
         if (!Context) return <PassedComponent {...props} />
         const Consumer = Context.Consumer
         return (
           <Consumer>
             {vrpcProps => (
-              this._renderConsumers(
+              this.renderConsumers(
                 PassedComponent,
                 backends,
                 { ...props, ...vrpcProps },
@@ -288,8 +295,55 @@ export function withVrpc (
     }
 
     render () {
-      if (!backends) backends = vrpcContexts.map(x => x.displayName)
-      return this._renderConsumers(PassedComponent, backends, this.props)
+      if (!backends) backends = vrpcBackendContexts.map(x => x.displayName)
+      return this.renderConsumers(PassedComponent, backends, this.props)
     }
   }
+}
+
+export function useClient ({ onError }) {
+  const { client, loading, error } = useContext(vrpcClientContext)
+  if (onError) client.on('error', onError)
+  return { client, loading: loading, error }
+}
+
+export function useBackend (name, id) {
+  const clientContext = useContext(vrpcClientContext)
+  const context = vrpcBackendContexts.find(x => x.displayName === name)
+  const backendContext = useContext(context)
+  const [backend, setBackend] = useState({
+    backend: null,
+    loading: true,
+    error: null
+  })
+  useEffect(() => {
+    if (!id) return
+    if (!backendContext[name].backend.ids.includes(id)) {
+      setBackend({
+        backend: null,
+        loading: false,
+        error: new Error(`Requested object with id '${id}' is not available`)
+      })
+      return
+    }
+    if (!dynamicBackends.has(id)) {
+      console.log('Attaching to backend', id)
+      dynamicBackends.add(id)
+      clientContext.client.getInstance(id)
+        .then((proxy) => {
+          setBackend({ backend: proxy, loading: false, error: null })
+        })
+        .catch((err) => {
+          setBackend({ backend: null, loading: false, error: err })
+        })
+    }
+  }, [name, id, backendContext, backend, clientContext.client])
+  if (clientContext.loading) {
+    return { backend: null, loading: true, error: null }
+  }
+  if (clientContext.error) {
+    return { backend: null, loading: false, error: clientContext.error }
+  }
+  if (id) return backend
+  return backendContext[name]
 }
