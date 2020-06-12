@@ -13,7 +13,7 @@ directly, obsoleting the need to define any wrappers, schemas, resolvers or adap
 
 ## Getting started
 
-Maybe the easiest way to get started is by following this example.
+Maybe the easiest way to get started is by following [this example](https://vrpc.io/examples/react-app).
 
 ## Documentation
 
