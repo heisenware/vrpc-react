@@ -1,8 +1,23 @@
-# react-vrpc
+# VRPC Client (React)
 
-React wrapper around the [vrpc](https://github.com/bheisen/vrpc) library
+## Introduction
 
-## Step 1 - Create VrpcProvider
+The react vrpc client is a complete solution for backend-frontend communication.
+Unlike other libraries it allows to communicate with an arbitrary number
+of potentially distributed backends at the same time.
+
+The react vrpc client integrates seamlessly in an non-opinionated way
+into modern react architectures. Built on top of the
+[VRPC](https://github.com/bheisen/vrpc) library it allows to call backend code
+directly, obsoleting the need to define any wrappers, schemas, resolvers or adapters.
+
+## Getting started
+
+Maybe the easiest way to get started is by following [this example](https://vrpc.io/examples/react-app).
+
+## Documentation
+
+### Create a VrpcProvider
 
 In the `index.js` of your react app add something like:
 
@@ -28,57 +43,35 @@ the `backends` property. Refer to them later simply by their name
 (here: `myBackend`).
 
 Think of `myBackend` as if it was a remotely available
-instance of the class you chose in the `className` property.
+instance of the class you specified in the `className` property.
 
 Depending on your backend architecture *react-vrpc* allows you to:
 
-1. Create an (anonymous) instance of a class
+1. Create an (anonymous) instance of a class:
 
     > define parameters: `agent`, `className`, `args`
 
-2. Create (if not exists) and use a named instance of class
+2. Create (if not exists) and use a named instance of class:
 
     > define parameters: `agent`, `className`, `instance`, `args`
 
-3. Use (never create) an existing named instance of a class
+3. Use (never create) an existing named instance of a class:
 
     > define parameters: `agent`, `className`, `instance`
 
-4. Use all named instances of a class
+4. <a name="managingBackend"></a> Manage all named instances of a class:
 
     > define parameters: `agent`, `className`
 
-    In this case your backend object reflects an array of proxy instances, and
-    you can access their id using `<proxy>._id` member variable.
+    In this case your backend object is a manager for all instances of the
+    defined `className`.
 
     You may also combine instances of different classes by using
-    a regular expression in the `className` property. The class name of each
-    instances is accessible via the `<proxy>._className` member variable.
+    a regular expression in the `className` property.
 
-> **TIP**
->
-> If your backend instance is capable to emit events you can automatically
-> subscribe to those by configuring an additional `events` property:
->
-> ```javascript
-> const VrpcProvider = createVrpcProvider({
->   backends: {
->     myInstances: {
->       agent: '<agentName>',
->       className: '<className>',
->       events: ['<eventName1>', '<eventName2>', ...]
->     }
->   },
-> })
-> ```
->
-> Corresponding notifications will result in a component update (see below) and
-> the event payload is accessible via the `<proxy>.<eventName>` property.
->
+### Wrap components and provide credentials
 
-## Step 2 - Use the VrpcProvider
-
-At a top-level position of your component hierarchy add the `<VrpcProvider>`
+Wrap all components that require backend access into the `<VrpcProvider>`
 
 ```javascript
 ReactDOM.render(
@@ -97,70 +90,155 @@ ReactDOM.render(
 > If working with `https://vrpc.io` as broker solution you may also
 > use `token` instead of `username` and `password`.
 
-## Step 3 - Give a component access to backend functions
+### Give a component access to backend functionality
+
+A component can use a single backend, any sub-set or all backends.
+
+We highly recommend the new hook API for injecting backends one by one:
 
 ```javascript
 import React from 'react'
-import { withVrpc } from 'react-vrpc'
+import { useBackend } from 'react-vrpc'
+
+function MyComponent () {
+  const { backend, loading, error } = useBackend('myBackend')
+
+  useEffect(() => {
+    const ret = await backend.myBackendFunction('test')
+  }, [backend])
+
+  if (loading) return 'Loading...'
+  if (error) return `Error! ${error.message}`
+
+  [...]
+}
+export default MyComponent
+```
+
+but we support class components as well.
+
+In this case backends are injected as regular props when using the
+`withBackend` component-wrapper function:
+
+```javascript
+import React from 'react'
+import { withBackend } from 'react-vrpc'
 
 class MyComponent extends React.Component {
 
   async componentDidMount () {
-    const { myBackend, vrpc } = this.props
-    const ret = await myBackend.aBackendFunction('test')
+    const { backend, loading, error } = this.props.myBackend
+    const ret = await backend.myBackendFunction('test')
   }
 }
 
-export default withVrpc(MyComponent)
+export default withBackend('myBackend', MyComponent)
 ```
+
+As you can see from the code snippets, your backend gets injected as an
+object which provides the following properties:
+
+| Property | Type           | Description
+|----------|----------------|-----------------------------------------------------------------|
+| `backend`| *proxy object* | reflects the actual backend instance
+| `loading`| *boolean*      | indicates asynchronous activity
+| `error`  | *error object* | any network or client issues
+| `refresh`| *function*     | triggers a re-render of all components using specified backend
 
 > **NOTE**
 >
-> You can restrict the backends available on your component (and hence the
-> amount of re-renders when they change) by specifying and individual one:
+> You can restrict the backends available on your component and hence reduce
+> the amount of re-renders when they change.
+>
+> Use no backend, but only the VRPC client:
 >
 > ```javascript
-> export default withVrpc(myBackend, MyComponent)
+> export default withBackend([], MyComponent)
 > ```
 >
-> or any subset of backends using and array notation:
+> Use a single backend:
 >
 > ```javascript
-> export default withVrpc([myBackend1, myBackend3], MyComponent)
+> export default withBackend('myBackend', MyComponent)
+> ```
+>
+> Use any subset of backends utilizing an array:
+>
+> ```javascript
+> export default withBackend(['myBackend1', 'myBackend3'], MyComponent)
+> ```
+>
+> Use all backends by omitting the argument:
+>
+> ```javascript
+> export default withBackend(MyComponent)
 > ```
 
-No matter what you do, the property `vrpc` reflecting the remote client
-is always available (and e.g. needed for static calls).
+### Access an individual instance belonging to a managing backend
 
-## Step 4 - Update component upon backend changes
-
-This step is optional and typically only needed if you configured your
-backend to reflect an array of instances (see point 4 of potential usages).
-
-There are two reasons why such an update may be triggered:
-
-1. The number of instances changed (reduced or increased)
-2. An event was emitted by one of the instances and the corresponding
-    value of the `<proxy>.<eventName>` member changed.
-
-For both cases you can use the `componentDidUpdate(prevProps)` life-cycle
-method of react:
+If you defined a backend in the way as shown [here](#managingBackend) it allows
+you to `create`, `get`, and `delete` instances using the functions:
 
 ```javascript
-async componentDidUpdate(prevProps) {
-  // myInstances reflects a backend with multiple instances
-  const { myInstances } = this.props
-  const prevInstances = prevProps.myInstances
-  if (prevInstances.length !== myInstances.length) {
-    // update needed, i.e. call setState in this component
-  } else {
-    // let 'state' be a subscribed event
-    const changed = prevInstances.filter(({ state }, index) => (
-      state !== myInstances[index].state
-    ))
-    if (changed.length > 0) {
-      // updated needed, at least on state change detected
-    }
-  }
-}
+async backend.create(id, [{ args, className }])
 ```
+
+* `id` \<string>: id of the managed instance
+* `args` \<array>: constructor arguments (optional)
+* `className` \<string>: name of the class (optional)
+
+```javascript
+async backend.get(id)
+```
+
+* `id` \<string>: id of the managed instance
+
+```javascript
+async backend.delete(id)
+```
+
+* `id` \<string>: id of the managed instance
+
+Often you will want access a specific managed instance in a component. This
+can be accomplished by using the hook function:
+
+```javascript
+useBackend('myManagingBackend', id)
+```
+
+Or, when using class components:
+
+```javascript
+export default withManagedInstance('myManagingBackend', MyComponent)
+```
+
+> **IMPORTANT**
+>
+> When using the class component make sure that the parent component
+> provides the property `id`. The corresponding proxy object is then available
+> under the injected `backend`, `loading` and `error` properties.
+
+### Access the VRPC client in your component
+
+When calling static or global functions, or when interested in availabilities
+of agents, classes, etc. it can be useful to directly access the VRPC client.
+
+You can do so using the hook `useClient` which provides the properties:
+
+| Property | Type           | Description
+|----------|----------------|-----------------------------------------------------------------|
+| `client` |*client object* | instance of the VRPC client
+| `loading`| *boolean*      | indicates asynchronous activity
+| `error`  | *error object* | any network or client issues
+
+Or access the property `vrpc` that is always injected by the `withBackend` function
+providing the same properties as described above.
+
+### Good to know
+
+In case the backend you are using is an event emitter, you can subscribe and
+unsubscribe to those events in your proxy object just as usual. VRPC will handle
+everything for you.
+
+Event subscriptions are the recommended way to realize front-end notifications
+whenever something on the backend changes.
