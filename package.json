@@ -1,6 +1,6 @@
 {
   "name": "react-vrpc",
-  "version": "0.10.0",
+  "version": "1.0.0",
   "description": "React wrapper around the vrpc library",
   "repository": "https://github.com/heisenware/react-vrpc",
   "author": "Burkhard Heisen <burkhard.heisen@heisenware.com>",
@@ -19,7 +19,7 @@
   ],
   "dependencies": {},
   "peerDependencies": {
-    "vrpc": "^2.1.2"
+    "vrpc": "^2.1.3"
   },
   "devDependencies": {
     "autoprefixer": "7.1.6",
