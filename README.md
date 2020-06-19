@@ -59,7 +59,7 @@ Depending on your backend architecture *react-vrpc* allows you to:
 
     > define parameters: `agent`, `className`, `instance`
 
-4. Manage all named instances of a class:
+4. <a name="managingBackend"></a> Manage all named instances of a class:
 
     > define parameters: `agent`, `className`
 
@@ -150,23 +150,73 @@ object which provides the following properties:
 > You can restrict the backends available on your component and hence reduce
 > the amount of re-renders when they change.
 >
-> Use a single backend by writing:
+> Use no backend, but only the VRPC client:
+>
+> ```javascript
+> export default withBackend([], MyComponent)
+> ```
+>
+> Use a single backend:
 >
 > ```javascript
 > export default withBackend('myBackend', MyComponent)
 > ```
 >
-> or any subset of backends utilizing an array:
+> Use any subset of backends utilizing an array:
 >
 > ```javascript
 > export default withBackend(['myBackend1', 'myBackend3'], MyComponent)
 > ```
 >
-> or load all available backends by omitting the argument:
+> Use all backends by omitting the argument:
 >
 > ```javascript
 > export default withBackend(MyComponent)
 > ```
+
+### Access an individual instance belonging to a managing backend
+
+If you defined a backend in the way as shown [here](#managingBackend) it allows
+you to `create`, `get`, and `delete` instances using the functions:
+
+```javascript
+async backend.create(id, [{ args, className }])
+```
+
+* `id` \<string>: id of the managed instance
+* `args` \<array>: constructor arguments (optional)
+* `className` \<string>: name of the class (optional)
+
+```javascript
+async backend.get(id)
+```
+
+* `id` \<string>: id of the managed instance
+
+```javascript
+async backend.delete(id)
+```
+
+* `id` \<string>: id of the managed instance
+
+Often you will want access a specific managed instance in a component. This
+can be accomplished by using the hook function:
+
+```javascript
+useBackend('myManagingBackend', id)
+```
+
+Or, when using class components:
+
+```javascript
+export default withManagedInstance('myManagingBackend', MyComponent)
+```
+
+> **IMPORTANT**
+>
+> When using the class component make sure that the parent component
+> provides the property `id`. The corresponding proxy object is then available
+> under the injected `backend`, `loading` and `error` properties.
 
 ### Access the VRPC client in your component
 

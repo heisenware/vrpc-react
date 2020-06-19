@@ -3,12 +3,13 @@ import { VrpcRemote } from 'vrpc'
 
 const vrpcClientContext = React.createContext()
 const vrpcBackendContexts = []
-const dynamicBackends = new Set()
+const vrpcManagedInstances = new Map()
 
 export function createVrpcProvider ({
   domain = 'public.vrpc',
   broker = 'wss://vrpc.io/mqtt',
-  backends = {}
+  backends = {},
+  debug = false
 }) {
   for (const key of Object.keys(backends)) {
     // Create context for this backend
@@ -30,6 +31,7 @@ export function createVrpcProvider ({
         domain={domain}
         username={username}
         password={password}
+        debug={debug}
       >
         {children}
       </VrpcBackendMaker>
@@ -44,10 +46,6 @@ class VrpcBackendMaker extends Component {
       initializing: true,
       vrpc: { client: null, loading: true, error: null }
     }
-    this.refresh = (key) => this.setState(prevState => {
-      const backend = { ...prevState[key][key].backend }
-      return { [key]: { [key]: { ...prevState[key][key], backend } } }
-    })
   }
 
   async componentDidMount () {
@@ -57,7 +55,8 @@ class VrpcBackendMaker extends Component {
       token,
       domain,
       username,
-      password
+      password,
+      debug
     } = this.props
 
     try {
@@ -84,7 +83,7 @@ class VrpcBackendMaker extends Component {
               const backend = await client.getInstance(instance, { className, agent, domain })
               this.setBackendState(key, backend, false, null)
             } catch (err) {
-              console.error(`Could not attach to backend instance '${instance}', because: ${err.message}`)
+              if (debug) console.error(`Could not attach to backend instance '${instance}', because: ${err.message}`)
               this.setBackendState(key, null, false, err)
             }
             // This backend is interested in a specific set of instances
@@ -109,12 +108,12 @@ class VrpcBackendMaker extends Component {
           if (args) continue
           // Available instance is used by this backend
           if (instance && this.state[key][key] && gone.includes(instance)) {
-            console.warn(`Lost instance '${instance}' for backend: ${key}`)
+            if (debug) console.warn(`Lost instance '${instance}' for backend: ${key}`)
             this.setBackendState(key, null, true, null)
             continue
           }
           // Delete all previously cached dynamic backends
-          gone.forEach(x => dynamicBackends.delete(x))
+          gone.forEach(x => vrpcManagedInstances.delete(x))
           this.setState(prevState => {
             const { backend, loading, error, refresh } = prevState[key][key]
             if (backend && backend.ids) {
@@ -129,7 +128,7 @@ class VrpcBackendMaker extends Component {
         for (const [k, v] of Object.entries(backends)) {
           if (v.agent === agent) {
             if (status === 'offline') {
-              console.warn(`Lost agent '${agent}' that is required for backend: ${k}`)
+              if (debug) console.warn(`Lost agent '${agent}' that is required for backend: ${k}`)
               const error = new Error(`Required agent '${agent}' is offline`)
               if (!v.instance && !v.args) {
                 const backend = this.state[k][k].backend
@@ -147,10 +146,10 @@ class VrpcBackendMaker extends Component {
                     instance: v.instance,
                     args: v.args
                   })
-                  console.log(`Created instance '${v.instance || '<anonymous>'}' for: backend ${k}`)
+                  if (debug) console.log(`Created instance '${v.instance || '<anonymous>'}' for: backend ${k}`)
                   this.setBackendState(k, backend, false, null)
                 } catch (err) {
-                  console.warn(`Could not create instance '${v.instance || '<anonymous>'}' for backend '${k}' because: ${err.message}`)
+                  if (debug) console.warn(`Could not create instance '${v.instance || '<anonymous>'}' for backend '${k}' because: ${err.message}`)
                   this.setBackendState(k, null, false, err)
                 }
               } else if (v.instance) {
@@ -164,10 +163,10 @@ class VrpcBackendMaker extends Component {
         }
       })
 
-      console.log('VRPC client is connected')
+      if (debug) console.log('VRPC client is connected')
       this.setState({ vrpc: { client, loading: false, error: null } })
     } catch (err) {
-      console.error(`VRPC client failed to connect because: ${err.message}`)
+      if (debug) console.error(`VRPC client failed to connect because: ${err.message}`)
       this.setState({ vrpc: { client: null, loading: false, error: err } })
     }
   }
@@ -185,6 +184,13 @@ class VrpcBackendMaker extends Component {
     })
   }
 
+  refresh (key) {
+    this.setState(prevState => {
+      const backend = { ...prevState[key][key].backend }
+      return { [key]: { [key]: { ...prevState[key][key], backend } } }
+    })
+  }
+
   initializeBackendStates (backends, client) {
     const obj = {}
     Object.keys(backends).forEach(key => {
@@ -197,6 +203,18 @@ class VrpcBackendMaker extends Component {
             args,
             instance: id
           }),
+          get: async (id) => {
+            if (vrpcManagedInstances.has(id)) return vrpcManagedInstances.get(id)
+            vrpcManagedInstances.set(id, { backend: null, loading: true, error: null })
+            try {
+              const instance = await client.getInstance(id, { agent })
+              vrpcManagedInstances.set(id, { backend: instance, loading: false, error: null })
+              return instance
+            } catch (err) {
+              vrpcManagedInstances.delete(id)
+              throw err
+            }
+          },
           delete: async (id) => client.delete(id, { agent }),
           ids: []
         }
@@ -220,7 +238,7 @@ class VrpcBackendMaker extends Component {
   renderProviders (children, index = -1) {
     if (index === -1) {
       return (
-        <vrpcClientContext.Provider value={this.state.vrpc}>
+        <vrpcClientContext.Provider value={{ vrpc: this.state.vrpc }}>
           {this.renderProviders(children, index + 1)}
         </vrpcClientContext.Provider>
       )
@@ -250,6 +268,66 @@ export function withVrpc (
   PassedComponent
 ) {
   return withBackend(backendsOrPassedComponent, PassedComponent)
+}
+
+export function withManagedInstance (backend, PassedComponent) {
+  const WithManagedInstance = class ComponentWithManagedInstance extends Component {
+    constructor () {
+      super()
+      this.state = { backend: null, loading: true, error: null }
+    }
+
+    componentDidMount () {
+      const { id, vrpc } = this.props
+      const managingBackend = this.props[backend].backend
+      if (!id) {
+        this.setState({
+          error: new Error('Parent component did not provide an "id" property')
+        })
+        return
+      }
+      if (!managingBackend.ids) {
+        this.setState({
+          error: new Error('The specified backend can not manage instances')
+        })
+        return
+      }
+      if (!managingBackend.ids.includes(id)) {
+        this.setState({
+          error: new Error(`Requested object with id '${id}' is not available`)
+        })
+        return
+      }
+      if (!vrpcManagedInstances.has(id)) {
+        vrpcManagedInstances.set(
+          id,
+          { backend: null, loading: true, error: null }
+        )
+        vrpc.client.getInstance(id)
+          .then((proxy) => {
+            const managedInstance = {
+              backend: proxy,
+              loading: false,
+              error: null
+            }
+            vrpcManagedInstances.set(id, managedInstance)
+            this.setState(managedInstance)
+          })
+          .catch((err) => {
+            vrpcManagedInstances.delete(id)
+            this.setState({ backend: null, loading: false, error: err })
+          })
+      } else {
+        this.setState(vrpcManagedInstances.get(id))
+      }
+    }
+
+    render () {
+      const injectedProps = { ...this.props, ...this.state }
+      return <PassedComponent {...injectedProps} />
+    }
+  }
+  return withBackend(backend, WithManagedInstance)
 }
 
 export function withBackend (
@@ -333,15 +411,29 @@ export function useBackend (name, id) {
       })
       return
     }
-    if (!dynamicBackends.has(id)) {
-      console.log('Attaching to backend', id)
-      dynamicBackends.add(id)
+    if (!vrpcManagedInstances.has(id)) {
+      vrpcManagedInstances.set(
+        id,
+        { backend: null, loading: true, error: null }
+      )
       clientContext.client.getInstance(id)
         .then((proxy) => {
-          setBackend({ backend: proxy, loading: false, error: null })
+          const managedInstance = {
+            backend: proxy,
+            loading: false,
+            error: null
+          }
+          vrpcManagedInstances.set(id, managedInstance)
+          setBackend(managedInstance)
         })
         .catch((err) => {
-          setBackend({ backend: null, loading: false, error: err })
+          const managedInstance = {
+            backend: null,
+            loading: false,
+            error: err
+          }
+          vrpcManagedInstances.set(id, managedInstance)
+          setBackend(managedInstance)
         })
     }
   }, [name, id, backendContext, backend, clientContext.client])
