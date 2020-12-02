@@ -216,6 +216,14 @@ class VrpcBackendMaker extends Component {
             }
           },
           delete: async (id) => client.delete(id, { agent }),
+          callAll: async (functionName, ...args) => {
+            return client.callAll({
+              agent,
+              functionName,
+              args,
+              className: backendClassName
+            })
+          },
           ids: []
         }
         obj[key] = { [key]: { backend, loading: false, error: null } }
@@ -238,7 +246,7 @@ class VrpcBackendMaker extends Component {
   renderProviders (children, index = -1) {
     if (index === -1) {
       return (
-        <vrpcClientContext.Provider value={{ vrpc: this.state.vrpc }}>
+        <vrpcClientContext.Provider value={{ ...this.state.vrpc }}>
           {this.renderProviders(children, index + 1)}
         </vrpcClientContext.Provider>
       )
@@ -393,7 +401,7 @@ export function useClient ({ onError }) {
 }
 
 export function useBackend (name, id) {
-  const clientContext = useContext(vrpcClientContext)
+  const { client, loading, error } = useContext(vrpcClientContext)
   const context = vrpcBackendContexts.find(x => x.displayName === name)
   const backendContext = useContext(context)
   const [backend, setBackend] = useState({
@@ -403,6 +411,12 @@ export function useBackend (name, id) {
   })
   useEffect(() => {
     if (!id) return
+    if (loading) {
+      return { backend: null, loading: true, error: null }
+    }
+    if (error) {
+      return { backend: null, loading: false, error }
+    }
     if (!backendContext[name].backend.ids.includes(id)) {
       setBackend({
         backend: null,
@@ -416,7 +430,7 @@ export function useBackend (name, id) {
         id,
         { backend: null, loading: true, error: null }
       )
-      clientContext.client.getInstance(id)
+      client.getInstance(id)
         .then((proxy) => {
           const managedInstance = {
             backend: proxy,
@@ -435,14 +449,10 @@ export function useBackend (name, id) {
           vrpcManagedInstances.set(id, managedInstance)
           setBackend(managedInstance)
         })
+    } else {
+      setBackend(vrpcManagedInstances.get(id))
     }
-  }, [name, id, backendContext, backend, clientContext.client])
-  if (clientContext.loading) {
-    return { backend: null, loading: true, error: null }
-  }
-  if (clientContext.error) {
-    return { backend: null, loading: false, error: clientContext.error }
-  }
+  }, [name, id, backendContext, backend, client, loading, error])
   if (id) return backend
   return backendContext[name]
 }
