@@ -204,9 +204,14 @@ class VrpcBackendMaker extends Component {
             instance: id
           }),
           get: async (id) => {
-            if (vrpcManagedInstances.has(id)) return vrpcManagedInstances.get(id)
+            if (vrpcManagedInstances.has(id)) {
+              return vrpcManagedInstances.get(id).backend
+            }
             const instance = await client.getInstance(id, { agent })
-            vrpcManagedInstances.set(id, { backend: instance, loading: false, error: null })
+            vrpcManagedInstances.set(
+              id,
+              { backend: instance, loading: false, error: null }
+            )
             return instance
           },
           delete: async (id) => client.delete(id, { agent }),
