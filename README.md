@@ -180,7 +180,7 @@ If you defined a backend in the way as shown [here](#managingBackend) it allows
 you to `create`, `get`, and `delete` instances using the functions:
 
 ```javascript
-async backend.create(id, [{ args, className }])
+async backend.create(id, { args, className })
 ```
 
 * `id` \<string>: id of the managed instance
