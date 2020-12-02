@@ -1,8 +1,8 @@
 ---
 name: Feature
 about: Open a feature for everything that enhances this project
-title: "[FEATURE]"
-labels: enhancement
+title: ''
+labels: feature
 assignees: ''
 
 ---
