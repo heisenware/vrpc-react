@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [unreleased]
 
+### Added
+
+- support for vrpc's new `callAll` feature
+
+### Fixed
+
+- problem regarding instance obtainment
+
 ### Changed
 
 - updated dependencies
