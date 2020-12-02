@@ -1,6 +1,6 @@
 ---
 name: Feature
-about: Enhancements go here
+about: Open a feature for everything that enhances this project
 title: "[FEATURE]"
 labels: enhancement
 assignees: ''
