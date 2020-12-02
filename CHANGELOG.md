@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - problem regarding instance obtainment
+- `backend.get()` function, which now always returns an instance proxy
 
 ### Changed
 
