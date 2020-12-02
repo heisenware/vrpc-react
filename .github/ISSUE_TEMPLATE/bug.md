@@ -1,6 +1,6 @@
 ---
 name: Bug
-about: Create a report to help us improve
+about: Open a bug for everything that does not work as expected
 title: ''
 labels: ''
 assignees: ''
