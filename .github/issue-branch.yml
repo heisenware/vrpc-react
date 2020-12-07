@@ -5,5 +5,5 @@ branches:
     prefix: feature/
   - label: bug
     prefix: bugfix/
-  - label: question
-    skip: true
+  - label: docs
+    prefix: docs/
