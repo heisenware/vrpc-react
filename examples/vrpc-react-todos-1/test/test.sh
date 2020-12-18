@@ -6,6 +6,9 @@ DIR=$(dirname `[[ $0 = /* ]] && echo "$0" || echo "$PWD/${0#./}"`); cd $DIR
 # Hostname of the container running the test
 TEST_CONT=cypress
 
+# Create project name using random name
+PROJECT=ci${RANDOM}
+
 # define some colors to use for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -14,9 +17,9 @@ NC='\033[0m'
 # kill and remove any running containers
 cleanup () {
   if [[ "$1" == "prod" ]]; then
-    docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+    docker-compose -p ${PROJECT} -f docker-compose.yml -f docker-compose.prod.yml down
   else
-    docker-compose down
+    docker-compose -p ${PROJECT} down
   fi
 }
 
@@ -26,9 +29,9 @@ trap 'cleanup ; printf "${RED}Tests Failed For Unexpected Reasons${NC}\n"'\
 
 # run the composed services
 if [[ "$1" == "prod" ]]; then
-  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+  docker-compose -p ${PROJECT} -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 else
-  docker-compose up -d
+  docker-compose -p ${PROJECT} up -d
 fi
 
 if [ $? -ne 0 ] ; then
@@ -36,9 +39,9 @@ if [ $? -ne 0 ] ; then
   exit -1
 fi
 
-docker logs -f test_${TEST_CONT}_1
+docker logs -f ${PROJECT}_${TEST_CONT}_1
 
-TEST_EXIT_CODE=`docker inspect test_${TEST_CONT}_1 --format='{{.State.ExitCode}}'`
+TEST_EXIT_CODE=`docker inspect ${PROJECT}_${TEST_CONT}_1 --format='{{.State.ExitCode}}'`
 
 # inspect the output of the test and display respective message
 if [ -z ${TEST_EXIT_CODE+x} ] || [ "$TEST_EXIT_CODE" != "0" ] ; then
