@@ -2,8 +2,7 @@ service:
   - docker
 
 script:
-  - bash examples/vrpc-react-todos-1/test/test.sh
-  - bash examples/vrpc-react-todos-2/test/test.sh
+  - bash examples/vrpc-react-todos-1/test/test.sh prod
 
 notifications:
   email:

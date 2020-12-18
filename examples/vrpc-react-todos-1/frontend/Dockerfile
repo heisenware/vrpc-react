@@ -1,7 +1,7 @@
 FROM node:12.20.0
 WORKDIR /app
-COPY . /app
 RUN npm install -g serve
-RUN npm install
+COPY . /app
+RUN npm install --only=prod
 RUN npm run build
-CMD serve -s build -l 80
+CMD serve -s build -l 3000

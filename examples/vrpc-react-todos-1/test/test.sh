@@ -13,7 +13,11 @@ NC='\033[0m'
 
 # kill and remove any running containers
 cleanup () {
-  docker-compose down
+  if [[ "$1" == "prod" ]]; then
+    docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+  else
+    docker-compose down
+  fi
 }
 
 # catch unexpected failures, do cleanup and output an error message
@@ -21,7 +25,12 @@ trap 'cleanup ; printf "${RED}Tests Failed For Unexpected Reasons${NC}\n"'\
   HUP INT QUIT PIPE TERM
 
 # run the composed services
-docker-compose build && docker-compose up -d
+if [[ "$1" == "prod" ]]; then
+  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+else
+  docker-compose up -d
+fi
+
 if [ $? -ne 0 ] ; then
   printf "${RED}Docker Compose Failed (${TEST_CONT})${NC}\n"
   exit -1
@@ -38,6 +47,6 @@ else
   printf "${GREEN}Tests Passed (${TEST_CONT})${NC}\n"
 fi
 # call the cleanup fuction
-# cleanup
+cleanup
 # exit the script with the same code as the test service code
 exit $TEST_EXIT_CODE
