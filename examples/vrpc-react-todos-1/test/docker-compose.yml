@@ -31,8 +31,6 @@ services:
     volumes:
       - ../frontend:/app
     working_dir: /app
-    ports:
-      - 3000:3000
     expose:
       - 3000
     command: ["npm", "start"]
