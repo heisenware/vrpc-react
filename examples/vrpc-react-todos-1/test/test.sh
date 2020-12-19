@@ -9,7 +9,6 @@ PROJECT=ci${RANDOM}
 # Test container name
 export CONTAINER=${PROJECT}_cypress
 
-
 # define some colors to use for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

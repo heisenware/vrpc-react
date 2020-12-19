@@ -2,6 +2,7 @@ version: '3.1'
 services:
   cypress:
     image: cypress/included:6.1.0
+    container_name: ${CONTAINER}
     hostname: cypress
     depends_on:
       - frontend
@@ -18,19 +19,11 @@ services:
       - run
 
   backend:
-    image: node:12.20.0
     hostname: backend
-    volumes:
-      - ../backend:/app
     working_dir: /app
     command: ["node", "index.js"]
 
   frontend:
-    image: node:12.20.0
-    hostname: frontend
-    volumes:
-      - ../frontend:/app
     working_dir: /app
     expose:
       - 3000
-    command: ["npm", "start"]

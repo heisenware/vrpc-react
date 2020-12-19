@@ -3,6 +3,7 @@ service:
 
 script:
   - bash examples/vrpc-react-todos-1/test/test.sh prod
+  - bash examples/vrpc-react-todos-2/test/test.sh prod
 
 notifications:
   email:

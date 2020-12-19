@@ -65,20 +65,20 @@ describe('Todo App', () => {
   context('Filter by completion state', () => {
     it('should correctly show only active todos', () => {
       cy.get('button').contains('Active').click()
-      cy.wait(100)
+      cy.wait(200)
       cy.get('ul>li').should('have.length', 1)
       cy.get('ul>li').eq(-1).should('contain', TODO_ITEM_TWO)
     })
     it('should correctly show only completed todos', () => {
       cy.get('button').contains('Completed').click()
-      cy.wait(100)
+      cy.wait(200)
       cy.get('ul>li').should('have.length', 1)
       cy.get('ul>li').eq(-1).should('contain', TODO_ITEM_ONE)
     })
     it('should correctly show all todos', () => {
       cy.get('button').contains('All').click()
-      cy.wait(100)
-      cy.get('ul>li').should('have.length', 2)
+      cy.wait(200)
+      cy.get('li').should('have.length', 2)
     })
   })
 })
