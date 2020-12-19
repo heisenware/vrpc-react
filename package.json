@@ -82,5 +82,8 @@
   },
   "eslintConfig": {
     "extends": "react-app"
-  }
+  },
+  "files": [
+    "lib/*"
+  ]
 }

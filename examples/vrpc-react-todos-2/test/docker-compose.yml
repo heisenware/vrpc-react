@@ -1,0 +1,29 @@
+version: '3.1'
+services:
+  cypress:
+    image: cypress/included:6.1.0
+    container_name: ${CONTAINER}
+    hostname: cypress
+    depends_on:
+      - frontend
+    volumes:
+      - ../frontend:/app
+    working_dir: /app
+    environment:
+      - CYPRESS_baseUrl=http://frontend:3000
+    command:
+      - /app/cypress/wait-for
+      - frontend:3000
+      - --
+      - cypress
+      - run
+
+  backend:
+    hostname: backend
+    working_dir: /app
+    command: ["node", "index.js"]
+
+  frontend:
+    working_dir: /app
+    expose:
+      - 3000
