@@ -2,6 +2,7 @@ version: '3.1'
 services:
   cypress:
     image: cypress/included:6.1.0
+    container_name: ${CONTAINER}
     hostname: cypress
     depends_on:
       - frontend

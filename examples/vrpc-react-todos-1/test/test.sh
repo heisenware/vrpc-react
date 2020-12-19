@@ -3,11 +3,12 @@
 # Make sure the script runs in the directory in which it is placed
 DIR=$(dirname `[[ $0 = /* ]] && echo "$0" || echo "$PWD/${0#./}"`); cd $DIR
 
-# Hostname of the container running the test
-TEST_CONT=cypress
-
 # Create project name using random name
 PROJECT=ci${RANDOM}
+
+# Test container name
+export CONTAINER=${PROJECT}_cypress
+
 
 # define some colors to use for output
 RED='\033[0;31m'
@@ -35,19 +36,19 @@ else
 fi
 
 if [ $? -ne 0 ] ; then
-  printf "${RED}Docker Compose Failed (${TEST_CONT})${NC}\n"
+  printf "${RED}Docker Compose Failed (${CONTAINER})${NC}\n"
   exit -1
 fi
 
-docker logs -f ${PROJECT}_${TEST_CONT}_1
+docker logs -f ${CONTAINER}
 
-TEST_EXIT_CODE=`docker inspect ${PROJECT}_${TEST_CONT}_1 --format='{{.State.ExitCode}}'`
+TEST_EXIT_CODE=`docker inspect ${CONTAINER} --format='{{.State.ExitCode}}'`
 
 # inspect the output of the test and display respective message
 if [ -z ${TEST_EXIT_CODE+x} ] || [ "$TEST_EXIT_CODE" != "0" ] ; then
-  printf "${RED}Tests Failed (${TEST_CONT})${NC} - Exit Code: $TEST_EXIT_CODE\n"
+  printf "${RED}Tests Failed (${CONTAINER})${NC} - Exit Code: $TEST_EXIT_CODE\n"
 else
-  printf "${GREEN}Tests Passed (${TEST_CONT})${NC}\n"
+  printf "${GREEN}Tests Passed (${CONTAINER})${NC}\n"
 fi
 # call the cleanup fuction
 cleanup
