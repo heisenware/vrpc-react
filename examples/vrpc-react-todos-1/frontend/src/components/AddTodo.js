@@ -7,9 +7,9 @@ function AddTodo () {
   async function handleSubmit (e) {
     e.preventDefault()
     const { value } = input
+    input.value = ''
     if (!value.trim()) return
     await backend.addTodo(value)
-    input.value = ''
     refresh()
   }
 

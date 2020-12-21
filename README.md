@@ -13,7 +13,10 @@ directly, obsoleting the need to define any wrappers, schemas, resolvers or adap
 
 ## Getting started
 
-Maybe the easiest way to get started is by following [this example](https://vrpc.io/examples/react-app).
+Maybe the easiest way to get started is by following these two examples:
+
+- [Simple React Todos App](examples/vrpc-react-todos-1/README.md)
+- [Advanced React Todos App](examples/vrpc-react-todos-2/README.md)
 
 ## Documentation
 
