@@ -245,7 +245,7 @@ class VrpcBackendMaker extends Component {
   renderProviders (children, index = -1) {
     if (index === -1) {
       return (
-        <vrpcClientContext.Provider value={{ ...this.state.vrpc }}>
+        <vrpcClientContext.Provider value={ { vrpc: this.state.vrpc } }>
           {this.renderProviders(children, index + 1)}
         </vrpcClientContext.Provider>
       )
