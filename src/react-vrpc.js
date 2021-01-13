@@ -393,7 +393,7 @@ export function withBackend (
   }
 }
 
-export function useClient ({ onError = {} }) {
+export function useClient ({ onError } = {}) {
   const { client, loading, error } = useContext(vrpcClientContext)
   if (onError) client.on('error', onError)
   return { client, loading: loading, error }
