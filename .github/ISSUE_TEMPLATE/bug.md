@@ -2,7 +2,7 @@
 name: Bug
 about: Open a bug for everything that does not work as expected
 title: ''
-labels: ''
+labels: bug
 assignees: ''
 
 ---
