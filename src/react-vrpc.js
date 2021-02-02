@@ -70,9 +70,9 @@ class VrpcBackendMaker extends Component {
 
       await client.connect()
 
-      client.on('instanceNew', async (added, { className }) => {
+      client.on('instanceNew', async (added, { className, agent }) => {
         if (!className) return
-        const keys = this.filterBackends(className, backends)
+        const keys = this.filterBackends(className, agent, backends)
         for (const key of keys) {
           const { agent, instance, args } = backends[key]
           // This backend manages the lifetime of its instance itself
@@ -99,9 +99,9 @@ class VrpcBackendMaker extends Component {
         }
       })
 
-      client.on('instanceGone', async (gone, { className }) => {
+      client.on('instanceGone', async (gone, { className, agent }) => {
         if (!className) return
-        const keys = this.filterBackends(className, backends)
+        const keys = this.filterBackends(className, agent, backends)
         for (const key of keys) {
           const { instance, args } = backends[key]
           // This backend manages the lifetime of its proxy itself
@@ -233,9 +233,10 @@ class VrpcBackendMaker extends Component {
     this.setState({ ...obj, initializing: false })
   }
 
-  filterBackends (className, backends) {
+  filterBackends (className, agent, backends) {
     const ret = []
     for (const [k, v] of Object.entries(backends)) {
+      if (agent && v.agent && (v.agent !== '*') && (agent !== v.agent)) continue
       if (typeof v.className === 'string' && v.className === className) ret.push(k)
       if (typeof v.className === 'object' && className.match(v.className)) ret.push(k)
     }
