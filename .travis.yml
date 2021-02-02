@@ -1,6 +1,6 @@
 before_install:
-  - echo 'DOCKER_OPTS="$DOCKER_OPTS --registry-mirror=https://mirror.gcr.io"'
-  - sudo service docker restart
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
 script:
   - bash examples/vrpc-react-todos-1/test/test.sh prod
   - bash examples/vrpc-react-todos-2/test/test.sh prod
