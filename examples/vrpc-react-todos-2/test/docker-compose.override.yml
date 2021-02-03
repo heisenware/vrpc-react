@@ -9,5 +9,6 @@ services:
   frontend:
     image: node:12.20.0
     volumes:
-      - ../frontend:/app
+      - ../../../:/app
+    working_dir: /app/examples/vrpc-react-todos-2/frontend
     command: ["npm", "start"]

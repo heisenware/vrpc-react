@@ -1,5 +1,6 @@
 before_install:
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - bash examples/install-prod.sh
 
 script:
   - bash examples/vrpc-react-todos-1/test/test.sh prod

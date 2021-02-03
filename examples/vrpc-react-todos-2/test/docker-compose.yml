@@ -24,6 +24,5 @@ services:
     command: ["node", "index.js"]
 
   frontend:
-    working_dir: /app
     expose:
       - 3000

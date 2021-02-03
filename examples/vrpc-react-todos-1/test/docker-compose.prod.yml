@@ -6,3 +6,7 @@ services:
 
   frontend:
     build: ../frontend
+    volumes:
+      - ../../../:/app
+    working_dir: /app/examples/vrpc-react-todos-1/frontend
+    command: ["serve", "-s", "build", "-l", "3000"]
