@@ -67,7 +67,7 @@ VrpcAdapter.register(require('./src/Todos'))
 async function main () {
   try {
     const vrpcAgent = new VrpcAgent({
-      agent: 'burkhards-todos-agent',
+      agent: 'example-todos-agent',
       domain: 'public.vrpc'
     })
     await vrpcAgent.serve()
@@ -125,7 +125,7 @@ const VrpcProvider = createVrpcProvider({
   domain: 'public.vrpc',
   backends: {
     todos: {
-      agent: 'burkhards-todos-agent',
+      agent: 'example-todos-agent',
       className: 'Todos',
       instance: 'react-todos',
       args: []

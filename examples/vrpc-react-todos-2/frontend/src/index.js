@@ -8,7 +8,7 @@ const VrpcProvider = createVrpcProvider({
   domain: 'public.vrpc',
   backends: {
     todos: {
-      agent: 'burkhards-advanced-todos-agent',
+      agent: 'example-advanced-todos-agent',
       className: 'Todo'
     }
   }
