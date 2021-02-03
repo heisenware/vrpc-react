@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 03 Feb 2021
+
+### Fixed
+
+- fixed potential timeout on when classes could belong to several agents (#33)
+- fixed wrong nesting level on injected vrpc client prop (#31)
+- added missing default to `useClient` hook (#28)
+
 ## [1.1.0] - 22 Dec 2020
 
 ### Added
