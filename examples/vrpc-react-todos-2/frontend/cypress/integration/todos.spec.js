@@ -32,12 +32,14 @@ describe('Todo App', () => {
     it('should allow to add todo items', () => {
       // create first todo
       cy.get('form>input').type(TODO_ITEM_ONE).type('{enter}')
+      cy.wait(200)
 
       // make sure the 1st label contains the 1st todo text
       cy.get('ul>li').eq(-1).should('contain', TODO_ITEM_ONE)
 
       // create second todo
       cy.get('form>input').type(TODO_ITEM_TWO).type('{enter}')
+      cy.wait(200)
 
       // FIXME This seems to be needed to get stuff going (but why?)
       cy.get('ul>li').should('have.length', 2)
