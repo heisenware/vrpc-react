@@ -1,5 +1,6 @@
 before_install:
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - npm install
   - bash examples/install-prod.sh
 
 script:
