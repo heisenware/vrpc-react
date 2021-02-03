@@ -10,13 +10,13 @@ DIR=$PWD
 cd vrpc-react-todos-1/frontend
 
 npm install --only=prod
-npm run build
+CI=false npm run build
 
 cd $DIR
 
 cd vrpc-react-todos-2/frontend
 
 npm install --only=prod
-npm run build
+CI=false npm run build
 
 cd $DIR
