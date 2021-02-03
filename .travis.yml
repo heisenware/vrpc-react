@@ -1,5 +1,11 @@
-service:
-  - docker
+language: node_js
+node_js:
+  - 12
+before_install:
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - npm install -g npm@latest
+  - npm install
+  - bash examples/install-prod.sh
 
 script:
   - bash examples/vrpc-react-todos-1/test/test.sh prod

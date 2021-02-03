@@ -6,6 +6,7 @@ services:
     hostname: cypress
     depends_on:
       - frontend
+      - backend
     volumes:
       - ../frontend:/app
     working_dir: /app
@@ -24,6 +25,5 @@ services:
     command: ["node", "index.js"]
 
   frontend:
-    working_dir: /app
     expose:
       - 3000

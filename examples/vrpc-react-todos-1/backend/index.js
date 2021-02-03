@@ -5,7 +5,7 @@ VrpcAdapter.register('./src/Todos')
 async function main () {
   try {
     const vrpcAgent = new VrpcAgent({
-      agent: 'burkhards-todos-agent',
+      agent: 'example-todos-agent',
       domain: 'public.vrpc',
       broker: 'mqtt://vrpc.io:1883'
     })

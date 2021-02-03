@@ -6,11 +6,11 @@
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.5.0",
     "@testing-library/user-event": "^7.2.1",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1",
-    "react-scripts": "4.0.1",
-    "react-vrpc": "^1.0.0",
-    "vrpc": "^2.2.3"
+    "react": "file:../../../node_modules/react",
+    "react-dom": "file:../../../node_modules/react-dom",
+    "react-scripts": "^4.0.1",
+    "react-vrpc": "file:../../../",
+    "vrpc": "^2.3.1"
   },
   "scripts": {
     "start": "react-scripts start",

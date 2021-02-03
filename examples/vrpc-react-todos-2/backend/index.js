@@ -5,7 +5,7 @@ VrpcAdapter.register('./src/Todo')
 async function main () {
   try {
     const vrpcAgent = new VrpcAgent({
-      agent: 'burkhards-advanced-todos-agent',
+      agent: 'example-advanced-todos-agent',
       domain: 'public.vrpc'
     })
     await vrpcAgent.serve()

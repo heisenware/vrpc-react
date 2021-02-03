@@ -9,7 +9,7 @@ const VrpcProvider = createVrpcProvider({
   broker: 'wss://vrpc.io/mqtt',
   backends: {
     todos: {
-      agent: 'burkhards-todos-agent',
+      agent: 'example-todos-agent',
       className: 'Todos',
       instance: 'react-todos',
       args: []
