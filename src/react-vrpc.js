@@ -215,12 +215,12 @@ class VrpcBackendMaker extends Component {
             return instance
           },
           delete: async (id) => client.delete(id, { agent }),
-          callAll: async (functionName, ...args) => {
+          callAll: async (functionName, { args, className }) => {
             return client.callAll({
               agent,
               functionName,
               args,
-              className: backendClassName
+              className: className || backendClassName,
             })
           },
           ids: []
