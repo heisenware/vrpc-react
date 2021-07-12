@@ -1,6 +1,6 @@
 import React from 'react'
 
-function Filter ({ onClick, filter }) {
+export default function Filter ({ onClick, filter }) {
   return (
     <div>
       <span>Show: </span>
@@ -28,5 +28,3 @@ function Filter ({ onClick, filter }) {
     </div>
   )
 }
-
-export default Filter

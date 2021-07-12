@@ -1,20 +1,17 @@
 import React from 'react'
 
-function VisibleTodoList ({ todos, onClick }) {
-
+export default function VisibleTodoList ({ data, onClick }) {
   return (
     <ul>
-      {todos.map(x => (
+      {data.map(({ text, completed }, i) => (
         <li
-          key={x.id}
-          onClick={() => onClick(x.id)}
-          style={{ textDecoration: x.completed ? 'line-through' : 'none' }}
+          key={`todo-${i}`}
+          onClick={() => onClick(i)}
+          style={{ textDecoration: completed ? 'line-through' : 'none' }}
         >
-          {x.text}
+          {text}
         </li>
       ))}
     </ul>
   )
 }
-
-export default VisibleTodoList

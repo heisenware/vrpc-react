@@ -23,7 +23,7 @@
   ],
   "dependencies": {},
   "peerDependencies": {
-    "vrpc": "^2.3.1"
+    "vrpc": "^2.6.0"
   },
   "devDependencies": {
     "autoprefixer": "7.1.6",

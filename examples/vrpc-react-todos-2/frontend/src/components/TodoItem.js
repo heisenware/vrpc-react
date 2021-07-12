@@ -1,37 +1,23 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useBackend } from 'react-vrpc'
 
-function TodoItem ({ id, filter }) {
-  const { backend, loading, error } = useBackend('todos', id)
+export default function TodoItem ({ id, filter }) {
+  const [todo] = useBackend('todos', id)
   const [data, setData] = useState({ text: '', completed: false })
-  const memoizedUpdate = useCallback(update, [setData, backend])
 
   useEffect(() => {
-    memoizedUpdate()
-  }, [memoizedUpdate])
-
-  useEffect(() => {
-    if (!backend) return
-    const handleUpdate = (data) => setData(data)
-    backend.on('update', handleUpdate)
+    if (!todo) return
+    todo.getData().then(data => setData(data))
+    const handleUpdate = data => setData(data)
+    todo.on('update', handleUpdate)
     return () => {
-      backend.off('update', handleUpdate).catch(() => {})
+      todo.off('update', handleUpdate).catch(() => {})
     }
-  }, [backend])
+  }, [todo])
 
-  async function update () {
-    if (!backend) return
-    const todoData = await backend.getData()
-    setData(todoData)
+  function handleClick () {
+    todo.toggleCompleted()
   }
-
-  async function handleClick () {
-    await backend.toggleCompleted()
-    await update()
-  }
-
-  if (loading) return <li>Loading...</li>
-  if (error) return <li>{`Error! ${error.message}`}</li>
 
   if (filter === 'completed' && !data.completed) return null
   if (filter === 'active' && data.completed) return null
@@ -45,5 +31,3 @@ function TodoItem ({ id, filter }) {
     </li>
   )
 }
-
-export default TodoItem

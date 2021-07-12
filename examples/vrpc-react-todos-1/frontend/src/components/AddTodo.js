@@ -1,15 +1,15 @@
 import React from 'react'
 import { useBackend } from 'react-vrpc'
 
-function AddTodo () {
-  const { backend, refresh } = useBackend('todos')
+export default function AddTodo () {
+  const [todo, , refresh] = useBackend('todo')
 
   async function handleSubmit (e) {
     e.preventDefault()
     const { value } = input
     input.value = ''
     if (!value.trim()) return
-    await backend.addTodo(value)
+    await todo.addTodo(value)
     refresh()
   }
 
@@ -18,12 +18,8 @@ function AddTodo () {
     <div>
       <form onSubmit={handleSubmit}>
         <input ref={node => (input = node)} />
-        <button type='submit'>
-          Add Todo
-        </button>
+        <button type='submit'>Add Todo</button>
       </form>
     </div>
   )
 }
-
-export default AddTodo
