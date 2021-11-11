@@ -5,7 +5,7 @@ import React, {
   createContext,
   useMemo
 } from 'react'
-import { VrpcRemote } from 'vrpc'
+import { VrpcClient } from 'vrpc'
 
 const vrpcClientContext = createContext()
 const vrpcBackendContexts = []
@@ -51,7 +51,7 @@ function VrpcBackendMaker ({
 }) {
   const client = useMemo(
     () =>
-      new VrpcRemote({
+      new VrpcClient({
         broker,
         token,
         domain,

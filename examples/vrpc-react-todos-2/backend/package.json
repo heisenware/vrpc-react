@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "vrpc": "^2.6.0"
+    "vrpc": "^3.0.0-alpha.1"
   }
 }

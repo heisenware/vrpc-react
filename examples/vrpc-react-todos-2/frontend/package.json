@@ -10,7 +10,7 @@
     "react-dom": "file:../../../node_modules/react-dom",
     "react-scripts": "^4.0.1",
     "react-vrpc": "file:../../../",
-    "vrpc": "heisenware/vrpc#master"
+    "vrpc": "^3.0.0-alpha.1"
   },
   "scripts": {
     "start": "react-scripts start",
