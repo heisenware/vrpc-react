@@ -1,0 +1,12 @@
+name: CI
+on: [push, workflow_dispatch]
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - run: npm install
+      - run: npm run build:ex1
+      - run: npm run build:ex2
+      - run: npm run test:ex1
+      - run: npm run test:ex2

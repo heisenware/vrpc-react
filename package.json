@@ -73,7 +73,11 @@
     "whatwg-fetch": "2.0.3"
   },
   "scripts": {
-    "build": "babel src/ --out-dir lib --copy-files"
+    "build:lib": "babel src/ --out-dir lib --copy-files",
+    "build:ex1": "./examples/vrpc-react-todos-1/test/install.sh",
+    "build:ex2": "./examples/vrpc-react-todos-2/test/install.sh",
+    "test:ex1": "./examples/vrpc-react-todos-1/test/test.sh",
+    "test:ex2": "./examples/vrpc-react-todos-2/test/test.sh"
   },
   "babel": {
     "presets": [

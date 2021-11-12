@@ -30,6 +30,8 @@ services:
   broker:
     image: erlio/docker-vernemq:1.9.0
     hostname: broker
+    ports:
+      - 1883:1883
     environment:
       DOCKER_VERNEMQ_ALLOW_ANONYMOUS: 'on'
     command: ['start_vernemq', '--name', 'vernemq_test']
@@ -37,6 +39,8 @@ services:
   frontend:
     expose:
       - 3000
+    ports:
+      - 3000:3000
     environment:
       REACT_APP_BROKER_HOST: broker
     depends_on: ['broker']
