@@ -22,7 +22,13 @@ export function createVrpcProvider ({
     context.displayName = key
     vrpcBackendContexts.push(context)
   }
-  return function VrpcProvider ({ children, username, password, token }) {
+  return function VrpcProvider ({
+    children,
+    username,
+    password,
+    token,
+    onError
+  }) {
     return (
       <VrpcBackendMaker
         backends={backends}
@@ -32,6 +38,7 @@ export function createVrpcProvider ({
         username={username}
         password={password}
         debug={debug}
+        onError={onError}
       >
         {children}
       </VrpcBackendMaker>
@@ -47,7 +54,8 @@ function VrpcBackendMaker ({
   domain,
   username,
   password,
-  debug
+  debug,
+  onError
 }) {
   const client = useMemo(
     () =>
@@ -65,13 +73,10 @@ function VrpcBackendMaker ({
   const [backend, setBackend] = useState([])
 
   useEffect(() => {
-    function filterBackends (className, backends) {
+    function filterBackends (className, agent) {
       const ret = []
       for (const [k, v] of Object.entries(backends)) {
-        if (typeof v.className === 'string' && v.className === className) {
-          ret.push(k)
-        }
-        if (typeof v.className === 'object' && className.match(v.className)) {
+        if (v.className === className && v.agent === agent) {
           ret.push(k)
         }
       }
@@ -140,9 +145,9 @@ function VrpcBackendMaker ({
     }
 
     function registerHandlers (client) {
-      client.on('instanceNew', async (added, { className }) => {
+      client.on('instanceNew', async (added, { className, agent }) => {
         if (!className) return
-        const keys = filterBackends(className, backends)
+        const keys = filterBackends(className, agent)
         for (const key of keys) {
           const { agent, instance, args } = backends[key]
           if (args) continue // active instance backend
@@ -179,9 +184,9 @@ function VrpcBackendMaker ({
         }
       })
 
-      client.on('instanceGone', async (gone, { className }) => {
+      client.on('instanceGone', async (gone, { className, agent }) => {
         if (!className) return
-        const keys = filterBackends(className, backends)
+        const keys = filterBackends(className, agent)
         for (const key of keys) {
           const { instance, args } = backends[key]
           if (args) continue // active instance backend
@@ -271,7 +276,11 @@ function VrpcBackendMaker ({
     async function init () {
       try {
         initializeBackends(client)
-        client.on('error', err => setError(err.message))
+        client.on('error', error => {
+          const { message } = error
+          onError(message)
+          setError(message)
+        })
         await client.connect()
         registerHandlers(client)
         if (debug) console.log('VRPC client is connected')
@@ -286,12 +295,11 @@ function VrpcBackendMaker ({
 
     // Initialize here
     init()
-  }, [client, backends, debug])
+  }, [client, backends, debug, onError])
 
   function refresh (backend) {
     setBackend(prev => {
       if (!prev[backend]) return prev
-      console.log('FORCING RE-RENDER')
       prev[backend][0] = { ...prev[backend][0] }
       return { ...prev }
     })
@@ -347,7 +355,7 @@ export function useBackend (name, id) {
         'The provided id is not an instance on the selected backend'
       ])
     }
-  }, [context, id])
+  }, [context, id, refresh, name])
   if (id) return proxy
   context.push(() => refresh(name))
   return context
