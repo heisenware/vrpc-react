@@ -1,26 +1,35 @@
-# VRPC Client (React)
+# VRPC - Variadic Remote Procedure Calls
 
-## Introduction
+[![Build Status](https://travis-ci.com/heisenware/vrpc-react.svg?branch=master)](https://travis-ci.com/heisenware/vrpc-react)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/heisenware/vrpc-react/master/LICENSE)
+[![Semver](https://img.shields.io/badge/semver-2.0.0-blue)](https://semver.org/spec/v2.0.0.html)
+[![GitHub Releases](https://img.shields.io/github/tag/heisenware/vrpc-react.svg)](https://github.com/heisenware/vrpc-react/tag)
+[![GitHub Issues](https://img.shields.io/github/issues/heisenware/vrpc-react.svg)](http://github.com/heisenware/vrpc-react/issues)
+![ci](https://github.com/heisenware/vrpc-react/actions/workflows/ci.yml/badge.svg)
 
-The react vrpc client is a complete solution for backend-frontend communication.
+## Visit our website: [vrpc.io](https://vrpc.io)
+## This is VRPC for React
+
+The React VRPC client is a complete solution for backend-frontend communication.
 Unlike other libraries it allows to communicate with an arbitrary number
 of potentially distributed backends at the same time.
 
-The react vrpc client integrates seamlessly in a non-opinionated way into modern
-react architectures. Built on top of the [VRPC](https://github.com/bheisen/vrpc)
-library it allows to call backend code directly, obsoleting the need to define
-any wrappers, schemas, resolvers or adapters.
+The React VRPC client integrates seamlessly in a non-opinionated way into modern
+React architectures. Built on top of the
+[VRPC](https://github.com/bheisen/vrpc-js) library it allows to call backend
+code directly, obsoleting the need to define any wrappers, schemas, resolvers or
+adapters.
 
-## Getting started
+### Getting started
 
 Maybe the easiest way to get started is by following these two examples:
 
 - [Simple React Todos App](examples/vrpc-react-todos-1/README.md)
 - [Advanced React Todos App](examples/vrpc-react-todos-2/README.md)
 
-## Documentation
+### Documentation
 
-### Create a VrpcProvider
+#### Create a VrpcProvider
 
 In the `index.js` of your react app add something like:
 
@@ -72,7 +81,7 @@ Depending on your backend architecture *react-vrpc* allows you to:
     You may also combine instances of different classes by using
     a regular expression in the `className` property.
 
-### Wrap components and provide credentials
+#### Wrap components and provide credentials
 
 Wrap all components that require backend access using the `<VrpcProvider>`
 
@@ -93,7 +102,7 @@ ReactDOM.render(
 > If working with `https://vrpc.io` as broker solution
 > use `token` instead of `username` and `password`.
 
-### Give a component access to backend functionality
+#### Give a component access to backend functionality
 
 A component can use a single backend, any sub-set or all backends.
 
@@ -127,7 +136,7 @@ array which provides the following properties:
 | `error`  | *error message* | any network or client issues
 | `refresh`| *function*      | triggers a re-render of all components using specified backend
 
-### Access an individual instance belonging to a managing backend
+#### Access an individual instance belonging to a managing backend
 
 If you defined a backend in the way as shown [here](#managingBackend) it allows
 you to `create`, `get`, and `delete` instances using the functions:
@@ -159,7 +168,7 @@ can be accomplished by using the hook function:
 useBackend('myManagingBackend', id)
 ```
 
-### Access the VRPC client in your component
+#### Access the VRPC client in your component
 
 When calling static or global functions, or when interested in availabilities
 of agents, classes, etc. it can be useful to directly access the VRPC client.
@@ -171,7 +180,7 @@ You can do so using the hook `useClient` which provides the properties:
 | `client` |*client object*  | instance of the VRPC client (is `null` while loading)
 | `error`  | *error message* | any network or client issues
 
-### Good to know
+#### Good to know
 
 In case the backend you are using is an event emitter, you can subscribe and
 unsubscribe to those events in your proxy object just as usual. VRPC will handle
