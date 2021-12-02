@@ -1,60 +1,33 @@
-import React from 'react'
-import { withBackend } from 'react-vrpc'
+import React, { useState, useEffect } from 'react'
+import { useBackend } from 'react-vrpc'
 import VisibleTodoList from './VisibleTodoList'
 import Filter from './Filter'
 
-class ShowTodos extends React.Component {
-  constructor () {
-    super()
-    this.state = {
-      todos: [],
-      filter: 'all'
+export default function ShowTodos () {
+  const [filter, setFilter] = useState('all')
+  const [data, setData] = useState([])
+  const [todo, , refresh] = useBackend('todo')
+
+  useEffect(() => {
+    if (!todo) return
+    todo.getTodos(filter).then(data => setData(data))
+  }, [todo, filter])
+
+  async function handleClick (index) {
+    try {
+      await todo.toggleTodo(index)
+      refresh()
+    } catch (err) {
+      console.warn(
+        `Could not toggle todo ${index + 1}, because: ${err.message}`
+      )
     }
   }
 
-  async componentDidMount () {
-    await this.updateTodos()
-  }
-
-  async componentDidUpdate (prevProps, prevState) {
-    if (prevProps.todos !== this.props.todos) {
-      await this.updateTodos()
-    }
-    if (this.state.filter !== prevState.filter) {
-      await this.updateTodos()
-    }
-  }
-
-  async updateTodos () {
-    const { todos: { backend } } = this.props
-    if (!backend) return
-    const { filter } = this.state
-    const todos = await backend.getTodos(filter)
-    this.setState({ todos })
-  }
-
-  async handleToggle (id) {
-    const { todos: { backend } } = this.props
-    if (!backend) return
-    await backend.toggleTodo(id)
-    await this.updateTodos()
-  }
-
-  render () {
-    const { todos, filter } = this.state
-    return (
-      <div>
-        <VisibleTodoList
-          todos={todos}
-          onClick={async (id) => this.handleToggle(id)}
-        />
-        <Filter
-          onClick={(filter) => this.setState({ filter })}
-          filter={filter}
-        />
-      </div>
-    )
-  }
+  return (
+    <div>
+      <VisibleTodoList data={data} onClick={handleClick} />
+      <Filter filter={filter} onClick={setFilter} />
+    </div>
+  )
 }
-
-export default withBackend('todos', ShowTodos)

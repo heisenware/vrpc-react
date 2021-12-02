@@ -1,7 +1,7 @@
 /**
- * The Todos class manages all todo items
+ * The Todo class manages all todo items
  */
-class Todos {
+class Todo {
   constructor () {
     this._todos = []
   }
@@ -11,17 +11,17 @@ class Todos {
    * @param {string} text The todo text
    */
   addTodo (text) {
-    const todo = { text, completed: false, id: this._todos.length }
+    const todo = { text, completed: false }
     this._todos.push(todo)
   }
 
   /**
    * Toggles a todo item
-   * @param {integer} id Todo item id
+   * @param {integer} index Index of the item to be toggled
    */
-  toggleTodo (id) {
-    const { completed } = this._todos[id]
-    this._todos[id].completed = !completed
+  toggleTodo (index) {
+    const { completed } = this._todos[index]
+    this._todos[index].completed = !completed
   }
 
   /**
@@ -40,4 +40,4 @@ class Todos {
   }
 }
 
-module.exports = Todos
+module.exports = Todo

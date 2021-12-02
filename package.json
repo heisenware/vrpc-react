@@ -1,6 +1,6 @@
 {
   "name": "react-vrpc",
-  "version": "1.1.1",
+  "version": "3.0.0-alpha.1",
   "description": "React wrapper around the vrpc library",
   "repository": "https://github.com/heisenware/react-vrpc",
   "author": "Burkhard Heisen <burkhard.heisen@heisenware.com>",
@@ -23,7 +23,7 @@
   ],
   "dependencies": {},
   "peerDependencies": {
-    "vrpc": "^2.3.1"
+    "vrpc": "^3.0.0-alpha.1"
   },
   "devDependencies": {
     "autoprefixer": "7.1.6",
@@ -73,7 +73,11 @@
     "whatwg-fetch": "2.0.3"
   },
   "scripts": {
-    "build": "babel src/ --out-dir lib --copy-files"
+    "build:lib": "babel src/ --out-dir lib --copy-files",
+    "build:ex1": "./examples/vrpc-react-todos-1/test/install.sh",
+    "build:ex2": "./examples/vrpc-react-todos-2/test/install.sh",
+    "test:ex1": "./examples/vrpc-react-todos-1/test/test.sh",
+    "test:ex2": "./examples/vrpc-react-todos-2/test/test.sh"
   },
   "babel": {
     "presets": [

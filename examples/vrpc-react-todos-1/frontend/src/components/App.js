@@ -3,10 +3,9 @@ import AddTodo from './AddTodo'
 import ShowTodos from './ShowTodos'
 import { useBackend } from 'react-vrpc'
 
-function App () {
-  const { loading, error } = useBackend('todos')
+export default function App () {
+  const [, error] = useBackend('todo')
 
-  if (loading) return 'Loading...'
   if (error) return `Error! ${error.message}`
 
   return (
@@ -17,5 +16,3 @@ function App () {
     </>
   )
 }
-
-export default App

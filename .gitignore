@@ -20,3 +20,7 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# custom
+examples/vrpc-react-todos-1/frontend/package-lock.json
+examples/vrpc-react-todos-2/frontend/package-lock.json
