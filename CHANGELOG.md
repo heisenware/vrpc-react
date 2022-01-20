@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [3.0.0] - Jan 20 2022
 
 ### Added
 
@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - backend filtering (now respecting agent information as well)
 
-## [3.0.0-alpha.1] - 11 Nov 2021
+## [3.0.0] - 11 Nov 2021
 
 ### Changed
 
