@@ -41,7 +41,7 @@ of potentially distributed backends at the same time.
 
 The React VRPC client integrates seamlessly in a non-opinionated way into modern
 React architectures. Built on top of the
-[VRPC](https://github.com/bheisen/vrpc-js) library it allows to call backend
+[VRPC](https://github.com/heisenware/vrpc-js) library it allows to call backend
 code directly, obsoleting the need to define any wrappers, schemas, resolvers or
 adapters.
 

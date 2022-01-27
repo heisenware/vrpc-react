@@ -11,7 +11,7 @@ async function main () {
     const vrpcAgent = new VrpcAgent({
       broker,
       agent: 'example-todos-agent',
-      domain: 'public.vrpc'
+      domain: 'vrpc'
     })
     await vrpcAgent.serve()
   } catch (err) {

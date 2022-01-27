@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [unreleased] - Jan 27 2022
+
+- adapted documentation to respect the separation of vrpc.io vs heisenware.cloud
+- using `vrpc` instead of `public.vrpc` as default domain
+
 ## [3.0.0] - Jan 20 2022
 
 ### Added

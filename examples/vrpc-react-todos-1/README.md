@@ -85,7 +85,7 @@ async function main () {
   try {
     const vrpcAgent = new VrpcAgent({
       agent: 'example-todos-agent',
-      domain: 'public.vrpc'
+      domain: 'vrpc'
     })
     await vrpcAgent.serve()
   } catch (err) {
@@ -110,8 +110,8 @@ Once started,
 node index.js
 ```
 
-you can immediately test your backend with https://live.vrpc.io.
-Simply login using `public.vrpc` as domain and leave the token-field empty.
+you can immediately test your backend with [VRPC Live](https://live.vrpc.io).
+Simply select `vrpc` as domain and see your backend online.
 
 ## STEP 2: Implementation of the frontend
 
@@ -139,7 +139,7 @@ import * as serviceWorker from './serviceWorker'
 import { createVrpcProvider } from 'react-vrpc'
 
 const VrpcProvider = createVrpcProvider({
-  domain: 'public.vrpc',
+  domain: 'vrpc',
   backends: {
     todos: {
       agent: 'example-todos-agent',
@@ -168,7 +168,7 @@ serviceWorker.unregister()
 In this file we are defining the available backends, here it's just one -
 a single instance of our `Todo` class. In this case, the fronted creates a
 new instance of the `Todo` class with the explicit name `react-todo`. If
-an instance with that name existed before VRPC will just attach to and not
+an instance with that name existed before, VRPC will just attach to and not
 re-create it.
 
 The `VrpcProvider` component manages the state of all backends and provides the
@@ -387,32 +387,38 @@ Your todos app is fully functional and you can play with it.
 > **NOTE**
 >
 > This example shows only basic features of react-vrpc. You can find
-> more documentation [here](https://www.npmjs.com/package/react-vrpc) and use
+> more documentation [here](https://vrpc.io/docs/react) and use
 > this example as a starting point to build more complex interactions.
 
 ## Optional steps to make your communication private
 
-### STEP A: Create a free VRPC account
+Using the services from [Heisenware GmbH](https://heisenware.com) you can make
+your communication private by obtaining an exclusive and access controlled
+domain.
+
+### STEP A: Create a Heisenware account
 
 If you already have an account, simply skip this step.
 
-If not, quickly create a new one by clicking on "CREATE A NEW ACCOUNT"
-under https://app.vrpc.io. It takes less than a minute and the only thing
-required is your name and a valid email address.
+If not, quickly create a new one
+[here](https://admin.heisenware.cloud/#/createAccount). It takes less than a
+minute and the only thing required is your name and a valid email address.
 
-### STEP B: Create a free domain
+### STEP B: Get a domain
 
 If you already have a domain, simply skip this step.
 
-If not, navigate to the `Domains` tab in your VRPC app and click *ADD DOMAIN*,
-choose a free domain and hit *Start 30 days trial* button.
+If not, navigate to the `Domains` tab in the [Admin
+Tool](https://admin.heisenware.cloud) and click *ADD DOMAIN*, choose a free
+domain and hit *Start 30 days trial* button.
 
-### STEP C: Adapt the code to use your domain and token
+### STEP C: Test connectivity
 
-For any agent to work, you must provide it with a valid domain and agent
-token. You get an agent token from your VRPC app using the `Access Control` tab.
+For any agent to work, you must provide it with a valid domain and access
+token. You get an access token from your [Admin
+Tool](https://admin.heisenware.cloud) using the *Access Control* tab.
 
-Simply copy the *defaultAgentToken* or create a new one and use this.
+Simply copy the default *Agent Token* or create a new one and use this.
 
 With that you are ready to make the communication between frontend and backend
 private.
@@ -421,9 +427,10 @@ In the backend use:
 
 ```javascript
 const vrpcAgent = new VrpcAgent({
-  agent: '<yourAgent>',
   domain: '<yourDomain>',
-  token: '<yourToken>'
+  agent: '<yourAgent>',
+  token: '<yourToken>',
+  broker: 'wss://heisenware.cloud'
 })
 ```
 
@@ -431,7 +438,8 @@ And adapt the *index.js* file in the frontend to:
 
 ```javascript
 const VrpcProvider = createVrpcProvider({
-  domain: '<yourDomain>'
+  domain: '<yourDomain>',
+  broker: 'wss://heisenware.cloud'
   // [...]
 })
 
@@ -439,3 +447,9 @@ const VrpcProvider = createVrpcProvider({
 
 <VrpcProvider token=<yourToken> >
 ```
+
+ **IMPORTANT**
+>
+> Use `heisenware.cloud` as broker host when working with professional
+> Heisenware accounts.
+>

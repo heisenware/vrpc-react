@@ -78,7 +78,7 @@ async function main () {
   try {
     const vrpcAgent = new VrpcAgent({
       agent: 'example-advanced-todos-agent',
-      domain: 'public.vrpc'
+      domain: 'vrpc'
     })
     await vrpcAgent.serve()
   } catch (err) {
@@ -90,18 +90,18 @@ async function main () {
 main()
 ```
 
-Now, it's interesting to see how it can
-be used via [VRPC Live](https://live.vrpc.io). Log in using `public.vrpc`, skip
-the token and you will see the `Todo` class under your agent name.
+Now, it's interesting to see how it can be used via [VRPC
+Live](https://live.vrpc.io). Select `vrpc` as domain and you will see the `Todo`
+class under your agent name.
 
 As VRPC can itself manage the life-time of instances (through the injected
 methods `create` and `delete`) you can create a `Todo` item by calling `create`
 with the argument ``keep coding``.
 
-This will create a **named** instance of the `Todo` class and pass `'keep coding'`
-to the constructor.
+This will create a **shared** instance of the `Todo` class and pass `'keep
+coding'` to the constructor.
 
-Once created, you can call all member functions.In the frontend implementation
+Once created, you can call all member functions. In the frontend implementation
 we will make use of this VRPC feature.
 
 ## Frontend
@@ -129,7 +129,7 @@ import * as serviceWorker from './serviceWorker'
 import { createVrpcProvider } from 'react-vrpc'
 
 const VrpcProvider = createVrpcProvider({
-  domain: 'public.vrpc',
+  domain: 'vrpc',
   backends: {
     todos: {
       agent: 'example-advanced-todos-agent',

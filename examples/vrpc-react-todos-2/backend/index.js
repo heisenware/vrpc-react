@@ -12,7 +12,7 @@ async function main () {
     const vrpcAgent = new VrpcAgent({
       broker,
       agent: 'example-advanced-todos-agent',
-      domain: 'public.vrpc'
+      domain: 'vrpc'
     })
     await vrpcAgent.serve()
   } catch (err) {

@@ -11,7 +11,7 @@ const vrpcClientContext = createContext()
 const vrpcBackendContexts = []
 
 export function createVrpcProvider ({
-  domain = 'public.vrpc',
+  domain = 'vrpc',
   broker = 'wss://vrpc.io/mqtt',
   backends = {},
   debug = false

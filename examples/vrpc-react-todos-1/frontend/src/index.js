@@ -10,7 +10,7 @@ const broker = process.env.REACT_APP_BROKER_HOST
 
 const VrpcProvider = createVrpcProvider({
   broker,
-  domain: 'public.vrpc',
+  domain: 'vrpc',
   backends: {
     todo: {
       agent: 'example-todos-agent',
