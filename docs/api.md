@@ -25,6 +25,9 @@ const VrpcProvider = createVrpcProvider({
 })
 ```
 
+Optionally, you may provide the `identity` property to give your VRPC client
+a custom identity.
+
 You can use any number of backends with VRPC by adding several objects under
 the `backends` property. Refer to them later simply by their name
 (here: `myBackend`).
@@ -52,9 +55,6 @@ Depending on your backend architecture _react-vrpc_ allows you to:
 
    In this case your backend object is a manager for all instances of the
    defined `className`.
-
-   You may also combine instances of different classes by using
-   a regular expression in the `className` property.
 
 ## Wrap components and provide credentials
 
