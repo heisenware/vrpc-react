@@ -15,6 +15,7 @@ export function createVrpcProvider ({
   broker = 'wss://vrpc.io/mqtt',
   backends = {},
   identity = null,
+  bestEffort = false,
   debug = false
 }) {
   // create a context for every user-specified backend
@@ -39,6 +40,7 @@ export function createVrpcProvider ({
         username={username}
         password={password}
         identity={identity}
+        bestEffort={bestEffort}
         debug={debug}
         onError={onError}
       >
@@ -57,6 +59,7 @@ function VrpcBackendMaker ({
   username,
   password,
   identity,
+  bestEffort,
   debug,
   onError
 }) {
@@ -68,9 +71,10 @@ function VrpcBackendMaker ({
         domain,
         username,
         password,
-        identity
+        identity,
+        bestEffort
       }),
-    [broker, token, domain, username, password]
+    [broker, token, domain, username, password, identity, bestEffort]
   )
   const [isInitializing, setIsInitializing] = useState(true)
   const [error, setError] = useState(null)
