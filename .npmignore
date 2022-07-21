@@ -1,5 +1,7 @@
 src/
 tests/
+examples/
+docs/
 .babelrc
 .github
 !lib/
