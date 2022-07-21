@@ -75,7 +75,7 @@ ReactDOM.render(
 > **NOTE**
 >
 > If working with `https://vrpc.io` as broker solution
-> use `token` instead of `username` and `password`.
+> you can connect anonymously and skip username and password.
 
 ## Give a component access to backend functionality
 
@@ -108,7 +108,7 @@ array which provides the following properties:
 | Property  | Type            | Description                                                    |
 | --------- | --------------- | -------------------------------------------------------------- |
 | `backend` | _proxy object_  | reflects the actual backend instance (is `null` while loading) |
-| `error`   | _error message_ | any network or client issues                                   |
+| `error`   | _error object_  | any network or client issues                                   |
 | `refresh` | _function_      | triggers a re-render of all components using specified backend |
 
 ## Access an individual instance belonging to a managing backend
@@ -153,7 +153,7 @@ You can do so using the hook `useClient` which provides the properties:
 | Property | Type            | Description                                           |
 | -------- | --------------- | ----------------------------------------------------- |
 | `client` | _client object_ | instance of the VRPC client (is `null` while loading) |
-| `error`  | _error message_ | any network or client issues                          |
+| `error`  | _error object_ | any network or client issues                          |
 
 ## Good to know
 

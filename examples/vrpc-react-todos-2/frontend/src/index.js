@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import App from './components/App'
 import * as serviceWorker from './serviceWorker'
 import { createVrpcProvider } from 'react-vrpc'
@@ -19,13 +19,11 @@ const VrpcProvider = createVrpcProvider({
   }
 })
 
-ReactDOM.render(
-  <React.StrictMode>
-    <VrpcProvider>
-      <App />
-    </VrpcProvider>
-  </React.StrictMode>,
-  document.getElementById('root')
+const root = createRoot(document.getElementById('root'))
+root.render(
+  <VrpcProvider>
+    <App />
+  </VrpcProvider>
 )
 
 // If you want your app to work offline and load faster, you can change

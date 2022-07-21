@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [unreleased]
 
-- added support for `bestEffort` option of VRPC
+### Added
+
+- support for `bestEffort` option of VRPC
+- error message types: `VrpcError` and `NetworkError`
+
+### Fixed
+
+- using error objects consistently
+- calling `onError` in case of vrpc related issues
+
+### Changed
+
+- upgraded dependencies
+- upgraded examples to use React 18
+- cleaned directory and dependency structure
 
 ## [3.1.0] - May 18 2022
 

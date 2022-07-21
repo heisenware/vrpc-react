@@ -7,6 +7,9 @@ import React, {
 } from 'react'
 import { VrpcClient } from 'vrpc'
 
+const NETWORK_ERROR = 'NetworkError'
+const VRPC_ERROR = 'VrpcError'
+
 const vrpcClientContext = createContext()
 const vrpcBackendContexts = []
 
@@ -29,7 +32,7 @@ export function createVrpcProvider ({
     username,
     password,
     token,
-    onError
+    onError = msg => debug && console.error(msg)
   }) {
     return (
       <VrpcBackendMaker
@@ -171,13 +174,14 @@ function VrpcBackendMaker ({
                 return { ...prev }
               })
             } catch (err) {
-              if (debug) {
-                console.error(
-                  `Could not attach to backend instance '${instance}', because: ${err.message}`
-                )
-              }
+              const error = new Error(
+                `Could not attach to backend instance '${instance}', because: ${err.message}`,
+                { cause: err }
+              )
+              error.name = VRPC_ERROR
+              onError(error)
               setBackend(prev => {
-                prev[key] = [null, err.message]
+                prev[key] = [null, error]
                 return { ...prev }
               })
             }
@@ -197,14 +201,15 @@ function VrpcBackendMaker ({
         const keys = filterBackends(className, agent)
         for (const key of keys) {
           const { instance, args } = backends[key]
-          if (args) continue // active instance backend
           // Available instance is used by this backend
           if (instance && gone.includes(instance)) {
-            if (debug) {
-              console.warn(`Lost instance '${instance}' for backend: ${key}`)
-            }
+            const error = new Error(
+              `Lost instance '${instance}' required for backend '${key}'`
+            )
+            error.name = VRPC_ERROR
+            onError(error)
             setBackend(prev => {
-              prev[key] = [null, `Lost instance: ${instance}`]
+              prev[key] = [null, error]
               return { ...prev }
             })
             continue
@@ -221,18 +226,18 @@ function VrpcBackendMaker ({
         for (const [k, v] of Object.entries(backends)) {
           if (v.agent !== agent) continue
           if (status === 'offline') {
-            if (debug) {
-              console.warn(
-                `Lost agent '${agent}' that is required for backend: ${k}`
-              )
-            }
+            const error = new Error(
+              `Lost agent '${agent}' required for backend '${k}'`
+            )
+            error.name = VRPC_ERROR
+            onError(error)
             setBackend(prev => {
               if (!v.instance && !v.args && prev[k][0]) {
                 prev[k][0].ids = []
               } else {
                 prev[k][0] = null
               }
-              prev[k][1] = `Required agent '${agent}' is offline`
+              prev[k][1] = error
               return { ...prev }
             })
           } else if (status === 'online') {
@@ -257,16 +262,15 @@ function VrpcBackendMaker ({
                   return { ...prev }
                 })
               } catch (err) {
-                if (debug) {
-                  console.warn(
-                    `Could not create instance '${v.instance ||
-                      '<anonymous>'}' for backend '${k}' because: ${
-                      err.message
-                    }`
-                  )
-                }
+                const error = new Error(
+                  `Could not create instance '${v.instance ||
+                    '<anonymous>'}' for backend '${k}' because: ${err.message}`,
+                  { cause: err }
+                )
+                error.name = VRPC_ERROR
+                onError(error)
                 setBackend(prev => {
-                  prev[k] = [null, err.message]
+                  prev[k] = [null, error]
                   return { ...prev }
                 })
               }
@@ -285,19 +289,22 @@ function VrpcBackendMaker ({
       try {
         initializeBackends(client)
         client.on('error', error => {
-          const { message } = error
-          onError(message)
-          setError(message)
+          error.name = NETWORK_ERROR
+          onError(error)
+          setError(error)
         })
         await client.connect()
         registerHandlers(client)
         if (debug) console.log('VRPC client is connected')
         setIsInitializing(false)
       } catch (err) {
-        if (debug) {
-          console.error(`VRPC client failed to connect because: ${err.message}`)
-        }
-        setError(err.message)
+        const error = new Error(
+          `VRPC client failed to connect because: ${err.message}`,
+          { cause: err }
+        )
+        error.name = VRPC_ERROR
+        onError(error)
+        setError(error)
       }
     }
 
@@ -356,12 +363,20 @@ export function useBackend (name, id) {
       backend
         .get(id)
         .then(proxy => setProxy([proxy, null, () => refresh(name)]))
-        .catch(err => setProxy([null, err.message]))
+        .catch(err => {
+          const error = new Error(
+            `Failed proxy creation for id '${id}' of backend '${name}' because: ${err.message}`,
+            { cause: err }
+          )
+          error.name = VRPC_ERROR
+          setProxy([null, error])
+        })
     } else {
-      setProxy([
-        null,
+      const error = new Error(
         'The provided id is not an instance on the selected backend'
-      ])
+      )
+      error.name = VRPC_ERROR
+      setProxy([null, error])
     }
   }, [context, id, refresh, name])
   if (id) return proxy

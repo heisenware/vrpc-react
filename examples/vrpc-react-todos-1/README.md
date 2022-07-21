@@ -133,15 +133,21 @@ All other files can afterwards be deleted, but don't also harm.
 
 ```javascript
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import App from './components/App'
 import * as serviceWorker from './serviceWorker'
 import { createVrpcProvider } from 'react-vrpc'
 
+const broker = process.env.REACT_APP_BROKER_HOST
+  ? `ws://${process.env.REACT_APP_BROKER_HOST}:8080/mqtt`
+  : 'wss://vrpc.io/mqtt'
+
 const VrpcProvider = createVrpcProvider({
+  broker,
   domain: 'vrpc',
+  debug: true,
   backends: {
-    todos: {
+    todo: {
       agent: 'example-todos-agent',
       className: 'Todo',
       instance: 'react-todo',
@@ -150,19 +156,18 @@ const VrpcProvider = createVrpcProvider({
   }
 })
 
-ReactDOM.render(
-  <React.StrictMode>
-    <VrpcProvider>
-      <App />
-    </VrpcProvider>
-  </React.StrictMode>,
-  document.getElementById('root')
+const root = createRoot(document.getElementById('root'))
+root.render(
+  <VrpcProvider onError={err => console.log(`${err.name}: ${err.message}`)}>
+    <App />
+  </VrpcProvider>
 )
 
 // If you want your app to work offline and load faster, you can change
 // unregister() to register() below. Note this comes with some pitfalls.
 // Learn more about service workers: https://bit.ly/CRA-PWA
 serviceWorker.unregister()
+
 ```
 
 In this file we are defining the available backends, here it's just one -

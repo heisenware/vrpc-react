@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import App from './components/App'
 import * as serviceWorker from './serviceWorker'
 import { createVrpcProvider } from 'react-vrpc'
@@ -11,6 +11,7 @@ const broker = process.env.REACT_APP_BROKER_HOST
 const VrpcProvider = createVrpcProvider({
   broker,
   domain: 'vrpc',
+  debug: true,
   backends: {
     todo: {
       agent: 'example-todos-agent',
@@ -21,13 +22,11 @@ const VrpcProvider = createVrpcProvider({
   }
 })
 
-ReactDOM.render(
-  <React.StrictMode>
-    <VrpcProvider>
-      <App />
-    </VrpcProvider>
-  </React.StrictMode>,
-  document.getElementById('root')
+const root = createRoot(document.getElementById('root'))
+root.render(
+  <VrpcProvider onError={err => console.log(`${err.name}: ${err.message}`)}>
+    <App />
+  </VrpcProvider>
 )
 
 // If you want your app to work offline and load faster, you can change

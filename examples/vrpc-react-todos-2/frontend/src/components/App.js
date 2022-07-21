@@ -6,7 +6,7 @@ import { useBackend } from 'react-vrpc'
 export default function App () {
   const [, error] = useBackend('todos')
 
-  if (error) return `Error! ${error}`
+  if (error) return `Error! ${error.message}`
 
   return (
     <>
