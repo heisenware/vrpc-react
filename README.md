@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>⚡ vrpc-react</h1>
+  <h1>vrpc-react</h1>
   <p><strong>Stop writing API boilerplate. Call your backend directly from React.</strong></p>
 
 [![npm version](https://img.shields.io/npm/v/vrpc-react.svg?style=flat-square)](https://www.npmjs.com/package/vrpc-react)

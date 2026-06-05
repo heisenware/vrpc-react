@@ -4,7 +4,7 @@ Welcome to the magic of `vrpc-react`!
 
 This example demonstrates how to build a fully reactive, real-time application **without writing a single API endpoint, GraphQL resolver, or explicit WebSocket handler.** By leveraging VRPC, we take a standard Node.js class (an `EventEmitter`) and seamlessly reflect its state and events directly into a React component tree.
 
-## ✨ The Magic
+## The Magic
 
 In this demo, you will see:
 
@@ -14,7 +14,7 @@ In this demo, you will see:
 
 ---
 
-## 🏃‍♂️ How to Run
+## How to Run
 
 To experience the magic, you need to run both the backend agent and the frontend React app simultaneously.
 
@@ -44,7 +44,7 @@ Your React application will start, usually accessible at `http://localhost:5173`
 
 ---
 
-## 🤯 The "Wow" Test
+## The "Wow" Test
 
 1. Open your browser and navigate to the frontend URL (e.g., `http://localhost:5173`).
 2. **Open a second browser window** (or even a different browser entirely) and navigate to the same URL. Place the windows side-by-side.
@@ -56,7 +56,7 @@ You have just built a global, real-time collaborative state using standard class
 
 ---
 
-## 🧠 How it Works
+## How it Works
 
 Take a look at the code to see how little boilerplate is required:
 
