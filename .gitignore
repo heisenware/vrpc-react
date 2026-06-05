@@ -1,26 +1,51 @@
-# See https://help.github.com/ignore-files/ for more about ignoring files.
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# dependencies
-node_modules
+# Build outputs (Do not commit the compiled library!)
+dist/
+build/
 
-# testing
-/coverage
-
-# production
-/build
-
-# misc
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Vite / ESLint caching
+.vite/
 .eslintcache
 
+# TypeScript cache
+*.tsbuildinfo
+
+# Test Coverage
+coverage/
+
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# custom
-examples/vrpc-react-todos-1/frontend/package-lock.json
-examples/vrpc-react-todos-2/frontend/package-lock.json
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs and Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+*.swo

@@ -1,43 +1,59 @@
 {
-  "name": "react-vrpc",
-  "version": "3.2.1",
-  "description": "React wrapper around the vrpc library",
-  "repository": "https://github.com/heisenware/vrpc-react",
-  "author": "Burkhard Heisen <burkhard.heisen@heisenware.com>",
-  "contributors": [
-    "Jacob Evans",
-    "Benjamin Joham"
+  "name": "vrpc-react",
+  "version": "0.1.0",
+  "description": "React bindings and hooks for VRPC",
+  "main": "./dist/index.cjs.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.cjs.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
   ],
-  "homepage": "https://vrpc.io",
-  "main": "lib/index.js",
-  "license": "Apache-2.0",
+  "scripts": {
+    "build": "vite build",
+    "lint": "eslint src/**/*.{js,jsx}",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
+    "vrpc": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
+    "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.8.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vite-plugin-dts": "^5.0.2",
+    "vrpc": "latest"
+  },
   "keywords": [
     "react",
     "vrpc",
-    "react-vrpc",
-    "remote procedural calls",
-    "communication",
-    "backend",
-    "async",
-    "iot"
+    "mqtt",
+    "rpc",
+    "hooks"
   ],
-  "peerDependencies": {
-    "vrpc": "^3.1.0"
-  },
-  "devDependencies": {
-    "@babel/cli": "^7.18.9",
-    "@babel/core": "^7.18.9",
-    "@babel/preset-env": "^7.18.9",
-    "@babel/preset-react": "^7.18.6",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "^5.0.1"
-  },
-  "scripts": {
-    "build:lib": "./node_modules/.bin/babel src --out-dir lib --copy-files",
-    "build:ex1": "./examples/vrpc-react-todos-1/test/install.sh",
-    "build:ex2": "./examples/vrpc-react-todos-2/test/install.sh",
-    "test:ex1": "./examples/vrpc-react-todos-1/test/test.sh",
-    "test:ex2": "./examples/vrpc-react-todos-2/test/test.sh"
+  "author": "Heisenware",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heisenware/vrpc-react.git"
   }
 }
