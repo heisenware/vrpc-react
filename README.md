@@ -51,7 +51,7 @@ export const VrpcProvider = createVrpcProvider({
   domain: 'my-app-domain',
   // Using the free public HiveMQ broker for testing
   broker:
-    'wss://[broker.hivemq.com:8084/mqtt](https://broker.hivemq.com:8084/mqtt)',
+    'wss://broker.hivemq.com:8884/mqtt',
   backends: {
     myBackend: {
       agent: 'my-agent-name',
