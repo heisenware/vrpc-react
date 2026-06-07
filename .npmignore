@@ -1,6 +1,7 @@
 # Source code and local development
 src/
 example/
+docs/
 node_modules/
 
 # Config files
