@@ -1,26 +1,22 @@
-<div align="center">
-  <h1>vrpc-react</h1>
-  <p><strong>Stop writing API boilerplate. Call your backend directly from React.</strong></p>
+# VRPC React
 
 [![npm version](https://img.shields.io/npm/v/vrpc-react.svg?style=flat-square)](https://www.npmjs.com/package/vrpc-react)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 
-</div>
+**Stop writing API boilerplate.** VRPC (Virtual Remote Procedure Call) allows you to call Node.js, C++, Python, and Arduino classes across any network as if they were local objects. Perfect for microservices, IoT edge devices, and directly driving React frontends—without the need for REST, GraphQL, or WebSocket boilerplate.
 
----
+**`vrpc-react`** provides the official, fully-typed React bindings for the [VRPC](https://vrpc.io/) ecosystem.
 
-**`vrpc-react`** provides the official, fully-typed React bindings for the [VRPC (Virtual Remote Procedure Call)](https://vrpc.io/) ecosystem.
+Imagine a world where you don't need to write route definitions, API resolvers, or manage WebSocket payloads just to trigger a function on your server. With `vrpc-react`, your remote C++, Node.js, or Python instances become fully reactive, local-feeling objects right inside your React component tree.
 
-Imagine a world where you don't need to write REST endpoints, GraphQL resolvers, or manage WebSocket payloads just to trigger a function on your server. With `vrpc-react`, your remote C++, Node.js, or Python instances become fully reactive, local-feeling objects right inside your React component tree.
+## Why VRPC for React?
 
-## Why `vrpc-react`?
-
-- **🚀 Zero API Boilerplate:** Call remote backend functions as if they were local JavaScript methods.
-- **🔄 Truly Reactive:** Built completely on React Hooks (`useBackend`, `useClient`) and Context. As backend instances come online, go offline, or change state, your UI updates automatically.
-- **🛡️ Type-Safe:** First-class TypeScript support out of the box.
-- **🔌 Seamless Connectivity:** Abstracts away all MQTT broker connections, reconnection logic, and session management.
-- **🩺 Auto-Health Checks:** Built-in polling to monitor the health and uptime of your remote agents.
+- **Zero API Boilerplate:** Call remote backend functions as if they were local JavaScript methods. Promises are handled natively!
+- **Truly Reactive:** Built completely on React Hooks (`useBackend`, `useClient`) and Context. As backend instances come online, go offline, or change state, your UI updates automatically.
+- **Type-Safe:** First-class TypeScript support out of the box.
+- **Seamless Connectivity:** Abstracts away all MQTT broker connections, reconnection logic, and NAT traversal. No CORS headaches, no complex reverse proxies.
+- **Auto-Health Checks:** Built-in polling to monitor the health and uptime of your remote distributed agents.
 
 ---
 
@@ -30,9 +26,11 @@ Install `vrpc-react` alongside its peer dependency, the core `vrpc` library:
 
 ```bash
 npm install vrpc-react vrpc
+# or
+yarn add vrpc-react vrpc
 ```
 
-_Note: Requires React 16.8+ for Hooks support._
+*Note: Requires React 16.8+ for Hooks support.*
 
 ---
 
@@ -51,7 +49,7 @@ export const VrpcProvider = createVrpcProvider({
   domain: 'my-app-domain',
   // Using the free public HiveMQ broker for testing
   broker:
-    'wss://broker.hivemq.com:8884/mqtt',
+    'wss://[broker.hivemq.com:8884/mqtt](https://broker.hivemq.com:8884/mqtt)',
   backends: {
     myBackend: {
       agent: 'my-agent-name',
@@ -77,7 +75,7 @@ Depending on your backend architecture, `vrpc-react` allows you to manage instan
    - Provide: `agent`, `className`, `instance`
 4. **Manage all named instances of a class:** (Multi-instance)
    - Provide: `agent`, `className` (omit `instance` and `args`)
-   - _In this case, your backend object acts as a manager for all instances of the defined `className`._
+   - *In this case, your backend object acts as a manager for all instances of the defined `className`.*
 
 ### 2. Wrap components and provide credentials
 
@@ -128,8 +126,8 @@ The `useBackend` hook returns an array containing:
 
 | Index | Type           | Description                                                                  |
 | :---- | :------------- | :--------------------------------------------------------------------------- |
-| `[0]` | _proxy object_ | Reflects the actual backend instance (is `null` while loading/offline)       |
-| `[1]` | _error object_ | Reflects any network, instantiation, or client issues (is `null` if healthy) |
+| `[0]` | *proxy object* | Reflects the actual backend instance (is `null` while loading/offline)       |
+| `[1]` | *error object* | Reflects any network, instantiation, or client issues (is `null` if healthy) |
 
 ### 4. Manage Multi-Instance Backends
 
@@ -181,7 +179,7 @@ export default function AdminPanel() {
 
 ---
 
-## 💡 Good to know
+## Good to know
 
 **Event Subscriptions:**
 In case the backend class you are using is an event emitter (in C++, Node, or Python), you can subscribe and unsubscribe to those events on your proxy object just as usual!
@@ -201,6 +199,23 @@ VRPC will handle the remote subscription over MQTT for you automatically. Event 
 
 ---
 
-## 📄 License
+## The VRPC Ecosystem
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Write your performance-critical code in **C++**, your data-science scripts in **Python**, your business logic in **Node.js**, and your IoT firmware on **Arduino**. Call them all identically.
+
+- [VRPC for Node.js / Browser](https://github.com/heisenware/vrpc-js)
+- [VRPC for Python](https://github.com/heisenware/vrpc-py)
+- [VRPC for C++](https://github.com/heisenware/vrpc-cpp)
+- [VRPC for Arduino / ESP32](https://github.com/heisenware/vrpc-arduino)
+
+## Documentation
+
+For detailed API references, advanced schema validation, and architecture overviews, please visit our official documentation at **[vrpc.io/docs](https://vrpc.io/docs)**.
+
+## Contributing
+
+Contributions are welcome! Whether it's reporting a bug, proposing a new feature, or submitting a pull request, we'd love your help to make VRPC even better. Please read our [Contributing Guidelines](CONTRIBUTING.md) to get started.
+
+## License
+
+VRPC is released under the [MIT License](LICENSE).
