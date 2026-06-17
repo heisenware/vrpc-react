@@ -1,6 +1,6 @@
 {
   "name": "vrpc-react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React bindings and hooks for VRPC",
   "main": "./dist/index.cjs.js",
   "module": "./dist/index.es.js",

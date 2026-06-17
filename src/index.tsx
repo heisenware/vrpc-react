@@ -74,6 +74,9 @@ function createVrpcError(message: string, prevError?: Error): Error {
 // Factory
 // --------------------------------------------------------
 
+// Defined outside to ensure a stable reference and prevent unnecessary re-renders
+const defaultOnError = (msg: any) => console.error(msg)
+
 export function createVrpcProvider({
   domain = 'vrpc',
   broker = 'wss://vrpc.io/mqtt',
@@ -97,7 +100,7 @@ export function createVrpcProvider({
     username,
     password,
     token,
-    onError = msg => debug && console.error(msg)
+    onError = defaultOnError // Now using the stable reference
   }: VrpcProviderProps) {
     return (
       <VrpcBackendMaker
@@ -159,8 +162,9 @@ function VrpcBackendMaker({
     [onError]
   )
 
+  // Client memoization purely based on config
   const client = useMemo(() => {
-    const client = new VrpcClient({
+    return new VrpcClient({
       broker,
       token,
       domain,
@@ -172,11 +176,6 @@ function VrpcBackendMaker({
       mqttClientId,
       keepalive: 3600 * 3 // 3 hours
     })
-    client.on('error', (error: Error) => {
-      error.name = NETWORK_ERROR
-      handleError(error)
-    })
-    return client
   }, [
     broker,
     token,
@@ -186,9 +185,24 @@ function VrpcBackendMaker({
     identity,
     mqttClientId,
     bestEffort,
-    requiresSchema,
-    handleError
+    requiresSchema
   ])
+
+  // Independent effect to handle error listener binding and unbinding
+  useEffect(() => {
+    if (!client) return
+
+    const onClientError = (error: Error) => {
+      error.name = NETWORK_ERROR
+      handleError(error)
+    }
+
+    client.on('error', onClientError)
+
+    return () => {
+      client.removeListener('error', onClientError)
+    }
+  }, [client, handleError])
 
   const filterBackends = useCallback(
     (className: string, agent: string) => {
@@ -411,10 +425,18 @@ function VrpcBackendMaker({
     }
   }, [client, debug, domain, handleError, initializeBackends, registerHandlers])
 
+  // 4. Added the critical cleanup function to tear down the old connection
   useEffect(() => {
     if (!client) return
+
     initialize()
-  }, [client, initialize])
+
+    return () => {
+      client.end().catch((err: Error) => {
+        if (debug) console.error('Error ending VRPC client:', err)
+      })
+    }
+  }, [client, initialize, debug])
 
   useEffect(() => {
     if (!isInitializing) {
