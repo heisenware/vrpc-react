@@ -11,8 +11,8 @@ import type {
 const EMPTY_IDS: readonly string[] = Object.freeze([])
 
 export interface ResolvedConfig {
-  domain: string
-  broker: string
+  domain?: string
+  broker?: string
   backends: Record<string, VrpcBackendConfig>
   identity?: string
   mqttClientId?: string

@@ -32,19 +32,19 @@ For TypeScript users the backend keys are inferred, so `useBackend('todoz')` is 
 
 ### Options
 
-| Property         | Type                            | Default                               | Description                                                          |
-| :--------------- | :------------------------------ | :------------------------------------ | :------------------------------------------------------------------- |
-| `domain`         | `string`                        | `'vrpc'`                              | The VRPC domain your agents are operating in.                        |
-| `broker`         | `string`                        | `'wss://broker.hivemq.com:8884/mqtt'` | WebSocket URL of your MQTT broker.                                   |
-| `backends`       | `Record<string, BackendConfig>` | `{}`                                  | Declarative mapping of the backend instances your app depends on.    |
-| `identity`       | `string`                        | auto-generated                        | Custom identity announced to the VRPC system.                        |
-| `mqttClientId`   | `string`                        | auto-generated                        | Explicit MQTT client id.                                             |
-| `bestEffort`     | `boolean`                       | `true`                                | Use MQTT QoS 0 (fire-and-forget) messaging.                          |
-| `requiresSchema` | `boolean`                       | `false`                               | Only accept backend instances that publish a schema.                 |
-| `timeout`        | `number`                        | `12000`                               | RPC and connect timeout in milliseconds.                             |
-| `keepalive`      | `number`                        | `30`                                  | MQTT keepalive in seconds.                                           |
-| `log`            | `'console' \| Logger`           | `'console'`                           | Logger passthrough to the underlying vrpc client.                    |
-| `debug`          | `boolean`                       | `false`                               | Verbose console logging of connection and instance lifecycle events. |
+| Property         | Type                            | Default                 | Description                                                                                  |
+| :--------------- | :------------------------------ | :---------------------- | :------------------------------------------------------------------------------------------- |
+| `domain`         | `string`                        | - (required to connect) | The VRPC domain your agents are operating in. May alternatively come from the provider prop. |
+| `broker`         | `string`                        | - (required to connect) | WebSocket URL of your MQTT broker. May alternatively come from the provider prop.            |
+| `backends`       | `Record<string, BackendConfig>` | `{}`                    | Declarative mapping of the backend instances your app depends on.                            |
+| `identity`       | `string`                        | auto-generated          | Custom identity announced to the VRPC system.                                                |
+| `mqttClientId`   | `string`                        | auto-generated          | Explicit MQTT client id.                                                                     |
+| `bestEffort`     | `boolean`                       | `true`                  | Use MQTT QoS 0 (fire-and-forget) messaging.                                                  |
+| `requiresSchema` | `boolean`                       | `false`                 | Only accept backend instances that publish a schema.                                         |
+| `timeout`        | `number`                        | `12000`                 | RPC and connect timeout in milliseconds.                                                     |
+| `keepalive`      | `number`                        | `30`                    | MQTT keepalive in seconds.                                                                   |
+| `log`            | `'console' \| Logger`           | `'console'`             | Logger passthrough to the underlying vrpc client.                                            |
+| `debug`          | `boolean`                       | `false`                 | Verbose console logging of connection and instance lifecycle events.                         |
 
 ### `BackendConfig`
 
@@ -75,11 +75,15 @@ The component returned by `createVrpc`. It owns the MQTT connection (one fresh c
 
 ### Props
 
-| Prop       | Type                         | Default         | Description                                                  |
-| :--------- | :--------------------------- | :-------------- | :----------------------------------------------------------- |
-| `username` | `string`                     | -               | MQTT username, if your broker requires authentication.       |
-| `password` | `string`                     | -               | MQTT password.                                               |
-| `onError`  | `(error: VrpcError) => void` | `console.error` | Called for connection problems and backend lifecycle errors. |
+| Prop           | Type                         | Default              | Description                                                   |
+| :------------- | :--------------------------- | :------------------- | :------------------------------------------------------------ |
+| `username`     | `string`                     | -                    | MQTT username, if your broker requires authentication.        |
+| `password`     | `string`                     | -                    | MQTT password.                                                |
+| `domain`       | `string`                     | factory config value | Runtime override of the VRPC domain (e.g. tenant/workspace).  |
+| `broker`       | `string`                     | factory config value | Runtime override of the broker URL.                           |
+| `identity`     | `string`                     | factory config value | Runtime override of the announced identity (e.g. user email). |
+| `mqttClientId` | `string`                     | factory config value | Runtime override of the MQTT client id (e.g. per-session id). |
+| `onError`      | `(error: VrpcError) => void` | `console.error`      | Called for connection problems and backend lifecycle errors.  |
 
 ```jsx
 root.render(
@@ -91,8 +95,10 @@ root.render(
 
 Notes:
 
+- **The provider stays dormant until both `domain` and `broker` are defined** (from the factory config or from props): no client is created and no network traffic occurs; hooks report `connecting`. There are deliberately no defaults for these two parameters - a connection can never go to an unintended broker or domain.
 - `onError` is consumed through a ref: passing an inline arrow function is safe and never affects the connection.
-- Changing `username` or `password` cleanly replaces the connection.
+- Changing `username`, `password`, or any connection override (`domain`, `broker`, `identity`, `mqttClientId`) cleanly replaces the connection; several changes in one React commit produce a single reconnect. Backends cycle `offline -> connecting -> ready` and event subscriptions re-establish.
+- The connection overrides fall back per-prop to the `createVrpc` config (`props.x ?? config.x`); the factory keeps everything else (backends, QoS, timeouts). If you supply `mqttClientId`, keeping it stable across reconnects is your responsibility.
 - Authentication maps 1:1 to MQTT: if your broker uses token schemes, pass the token as the MQTT `password`.
 - `<React.StrictMode>` is fully supported.
 

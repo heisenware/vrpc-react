@@ -29,8 +29,10 @@ const { VrpcClient } = vrpc
 
 function resolveConfig (config: VrpcConfig<any>): ResolvedConfig {
   return {
-    domain: config.domain ?? 'vrpc',
-    broker: config.broker ?? 'wss://broker.hivemq.com:8884/mqtt',
+    // deliberately NO defaults: without an explicit domain and broker
+    // (from config or provider props) no connection is ever attempted
+    domain: config.domain,
+    broker: config.broker,
     backends: config.backends ?? {},
     identity: config.identity,
     mqttClientId: config.mqttClientId,
@@ -57,6 +59,10 @@ export function createVrpc<
     children,
     username,
     password,
+    domain,
+    broker,
+    identity,
+    mqttClientId,
     onError
   }: VrpcProviderProps) {
     const onErrorRef = useRef(onError)
@@ -72,16 +78,32 @@ export function createVrpc<
       })
     )
 
+    // Effective connection parameters: provider props override the
+    // factory config. domain and broker are REQUIRED - the provider
+    // stays dormant (no client, no network traffic) until both exist.
+    const effectiveDomain = domain ?? resolved.domain
+    const effectiveBroker = broker ?? resolved.broker
+    const effectiveIdentity = identity ?? resolved.identity
+    const effectiveMqttClientId = mqttClientId ?? resolved.mqttClientId
+
     useEffect(() => {
+      if (!effectiveDomain || !effectiveBroker) {
+        if (resolved.debug) {
+          console.log(
+            '[vrpc-react] Waiting for domain and broker before connecting'
+          )
+        }
+        return
+      }
       const client = new VrpcClient({
-        broker: resolved.broker,
-        domain: resolved.domain,
+        broker: effectiveBroker,
+        domain: effectiveDomain,
         username,
         password,
-        identity: resolved.identity,
+        identity: effectiveIdentity,
         bestEffort: resolved.bestEffort,
         requiresSchema: resolved.requiresSchema,
-        mqttClientId: resolved.mqttClientId,
+        mqttClientId: effectiveMqttClientId,
         keepalive: resolved.keepalive,
         ...(resolved.timeout !== undefined && { timeout: resolved.timeout }),
         ...(resolved.log !== undefined && { log: resolved.log })
@@ -105,7 +127,15 @@ export function createVrpc<
           client.end().catch(() => {})
         })
       }
-    }, [store, username, password])
+    }, [
+      store,
+      username,
+      password,
+      effectiveDomain,
+      effectiveBroker,
+      effectiveIdentity,
+      effectiveMqttClientId
+    ])
 
     return (
       <StoreContext.Provider value={store}>{children}</StoreContext.Provider>

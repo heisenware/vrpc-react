@@ -18,7 +18,7 @@ interface TodoApi {
 
 // Compile-time assertions; the hook-shaped function is exported, never executed.
 export function useTypeChecks () {
-  const { useBackend, useClient } = createVrpc({
+  const { VrpcProvider, useBackend, useClient } = createVrpc({
     domain: 'test',
     backends: {
       todos: { agent: 'a1', className: 'TodoList', instance: 't1', args: [] },
@@ -59,6 +59,17 @@ export function useTypeChecks () {
   >()
   expectTypeOf(error).toEqualTypeOf<VrpcError | null>()
   expectTypeOf(client).toEqualTypeOf<VrpcClient | null>()
+
+  // provider accepts runtime connection overrides
+  expectTypeOf(VrpcProvider).toBeCallableWith({
+    children: null,
+    domain: 'tenant',
+    broker: 'wss://broker/mqtt',
+    identity: 'user@heisenware.com',
+    mqttClientId: 'session-1',
+    username: 'alice',
+    password: 'secret'
+  })
 }
 
 describe('type-level API', () => {

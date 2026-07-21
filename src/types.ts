@@ -81,9 +81,16 @@ export interface VrpcConfig<
     VrpcBackendConfig
   >
 > {
-  /** VRPC domain, default 'vrpc' */
+  /**
+   * VRPC domain. Required to connect - provide it here or as a provider
+   * prop; there is NO default and no connection is attempted without it.
+   */
   domain?: string
-  /** MQTT broker WebSocket URL, default 'wss://broker.hivemq.com:8884/mqtt' */
+  /**
+   * MQTT broker WebSocket URL. Required to connect - provide it here or
+   * as a provider prop; there is NO default and no connection is
+   * attempted without it.
+   */
   broker?: string
   /** Declarative backend mapping, default {} */
   backends?: B
@@ -109,6 +116,16 @@ export interface VrpcProviderProps {
   children: ReactNode
   username?: string
   password?: string
+  /**
+   * Connection overrides - each defaults to the corresponding createVrpc
+   * config value. Changing any of them behaves exactly like changing
+   * username/password: the client is torn down and reconnected; backends
+   * cycle offline -> connecting -> ready; event subscriptions re-establish.
+   */
+  domain?: string
+  broker?: string
+  identity?: string
+  mqttClientId?: string
   /**
    * Called for connection problems and backend lifecycle errors.
    * Identity changes never affect the connection (consumed via ref).

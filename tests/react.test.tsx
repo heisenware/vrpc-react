@@ -429,6 +429,171 @@ describe('VrpcProvider & hooks', () => {
     expect(screen.getByTestId('status').textContent).toBe('connected')
   })
 
+  it('stays dormant until BOTH domain and broker are available', async () => {
+    // factory deliberately omits domain and broker
+    const { VrpcProvider, useBackend, useClient } = createVrpc({
+      backends: {
+        todos: { agent: 'a1', className: 'TodoList', instance: 't-1', args: [] }
+      }
+    })
+
+    function Probe () {
+      const { status } = useBackend('todos')
+      const { client, status: clientStatus } = useClient()
+      return (
+        <span data-testid='probe'>
+          {status}:{clientStatus}:{client ? 'client' : 'none'}
+        </span>
+      )
+    }
+
+    const view = render(
+      <VrpcProvider>
+        <Probe />
+      </VrpcProvider>
+    )
+    // no client, no connection attempt, hooks report connecting
+    expect(MockVrpcClient.instances).toHaveLength(0)
+    expect(screen.getByTestId('probe').textContent).toBe(
+      'connecting:connecting:none'
+    )
+
+    // only one of the two parameters: still dormant
+    view.rerender(
+      <VrpcProvider domain='tenant-1'>
+        <Probe />
+      </VrpcProvider>
+    )
+    await flush()
+    expect(MockVrpcClient.instances).toHaveLength(0)
+
+    // both present: NOW the connection starts, with the given values
+    view.rerender(
+      <VrpcProvider domain='tenant-1' broker='wss://runtime.broker/mqtt'>
+        <Probe />
+      </VrpcProvider>
+    )
+    await flush()
+    expect(MockVrpcClient.instances).toHaveLength(1)
+    expect(MockVrpcClient.last.options.domain).toBe('tenant-1')
+    expect(MockVrpcClient.last.options.broker).toBe('wss://runtime.broker/mqtt')
+
+    await act(async () => {
+      MockVrpcClient.last.connack()
+      MockVrpcClient.last.agentOnline('a1')
+      await flush()
+    })
+    expect(screen.getByTestId('probe').textContent).toBe(
+      'ready:connected:client'
+    )
+  })
+
+  it('falls back to factory connection values without override props', async () => {
+    const { VrpcProvider } = makeFactory()
+    render(
+      <VrpcProvider>
+        <span />
+      </VrpcProvider>
+    )
+    const options = MockVrpcClient.last.options
+    expect(options.domain).toBe('test')
+    expect(options.broker).toBe('wss://broker.test/mqtt')
+    expect(options.identity).toBeUndefined()
+    expect(options.mqttClientId).toBeUndefined()
+  })
+
+  it('applies connection override props to the client', async () => {
+    const { VrpcProvider } = makeFactory()
+    render(
+      <VrpcProvider
+        domain='tenant-1'
+        broker='wss://other.broker/mqtt'
+        identity='user@heisenware.com'
+        mqttClientId='session-42'
+      >
+        <span />
+      </VrpcProvider>
+    )
+    const options = MockVrpcClient.last.options
+    expect(options.domain).toBe('tenant-1')
+    expect(options.broker).toBe('wss://other.broker/mqtt')
+    expect(options.identity).toBe('user@heisenware.com')
+    expect(options.mqttClientId).toBe('session-42')
+  })
+
+  it('reconnects with new values when a connection prop changes', async () => {
+    const { VrpcProvider, useBackend } = makeFactory()
+
+    function Probe () {
+      const { status } = useBackend('todos')
+      return <span data-testid='status'>{status}</span>
+    }
+
+    const view = render(
+      <VrpcProvider domain='tenant-1'>
+        <Probe />
+      </VrpcProvider>
+    )
+    await act(async () => {
+      MockVrpcClient.last.connack()
+      MockVrpcClient.last.agentOnline('a1')
+      await flush()
+    })
+    expect(screen.getByTestId('status').textContent).toBe('ready')
+    const first = MockVrpcClient.last
+
+    view.rerender(
+      <VrpcProvider domain='tenant-2'>
+        <Probe />
+      </VrpcProvider>
+    )
+    await flush()
+    expect(MockVrpcClient.instances).toHaveLength(2)
+    expect(first.end).toHaveBeenCalledTimes(1)
+    const second = MockVrpcClient.last
+    expect(second.options.domain).toBe('tenant-2')
+    expect(screen.getByTestId('status').textContent).toBe('connecting')
+
+    // recovery on the new connection: same pipeline as startup
+    await act(async () => {
+      second.connack()
+      second.agentOnline('a1')
+      await flush()
+    })
+    expect(screen.getByTestId('status').textContent).toBe('ready')
+  })
+
+  it('performs exactly one reconnect for several connection props changed together', async () => {
+    const { VrpcProvider } = makeFactory()
+
+    const view = render(
+      <VrpcProvider domain='tenant-1' identity='anon' username='alice'>
+        <span />
+      </VrpcProvider>
+    )
+    await act(async () => MockVrpcClient.last.connack())
+    expect(MockVrpcClient.instances).toHaveLength(1)
+
+    // login commits domain + identity + credentials in ONE render
+    view.rerender(
+      <VrpcProvider
+        domain='tenant-2'
+        identity='user@heisenware.com'
+        username='bob'
+        password='secret'
+      >
+        <span />
+      </VrpcProvider>
+    )
+    await flush()
+    expect(MockVrpcClient.instances).toHaveLength(2)
+    const options = MockVrpcClient.last.options
+    expect(options.domain).toBe('tenant-2')
+    expect(options.identity).toBe('user@heisenware.com')
+    expect(options.username).toBe('bob')
+    expect(options.password).toBe('secret')
+  })
+
   it('reports CONNECTION_FAILED when the initial connect rejects', async () => {
     const { VrpcProvider, useBackend } = makeFactory()
     const onError = vi.fn()

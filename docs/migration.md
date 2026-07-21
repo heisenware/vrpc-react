@@ -30,6 +30,8 @@ const { backend: todos, error, status } = useBackend('todos')
 
 Benefits: backend keys are compile-time checked for TypeScript users, several independent providers can coexist without any key collisions, and hooks fail with a clear error when used outside their provider.
 
+Since 1.1.0, connection parameters known only at runtime (`domain`, `broker`, `identity`, `mqttClientId`) can be passed as provider props. 0.1.x consumers that called the factory inside `useMemo` to inject a dynamic domain should move to a module-level `createVrpc` plus connection props - see "Runtime connection parameters" in the README.
+
 ## 2. `useBackend` returns a named object
 
 The `[proxy, error]` tuple is replaced by `{ backend, error, status }` with `status: 'connecting' | 'ready' | 'offline' | 'error'`. There is no more guessing what two `null`s mean.
@@ -77,6 +79,7 @@ await client.callStatic({ agent: 'my-agent', className: 'MyClass', functionName:
 
 ## 7. Connection behavior changes
 
+- `domain` and `broker` no longer have defaults (previously `'vrpc'` and a public demo broker). No connection is attempted until both are provided - via `createVrpc` or, since 1.1.0, via provider props. This rules out accidental connections to unintended brokers or domains; consumers that relied on the defaults must now pass both explicitly.
 - The MQTT `keepalive` now defaults to 30 seconds (vrpc's default). It was previously hardcoded to 3 hours. `keepalive`, `timeout`, and `log` are new passthrough options of `createVrpc`.
 - Changing the `onError` prop identity no longer tears down the connection. Passing inline arrow functions is safe.
 - Changing `username` or `password` performs a clean reconnect with a fresh client.

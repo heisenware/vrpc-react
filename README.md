@@ -99,6 +99,41 @@ root.render(
 )
 ```
 
+### Runtime connection parameters
+
+Backend topology is usually static, but connection parameters often are not: the VRPC `domain` may be a tenant or workspace selected at login, `identity` the authenticated user, `mqttClientId` a per-session id. For these cases the provider accepts optional overrides - keep `createVrpc` at module level (so the typed hooks stay importable everywhere) and pass the runtime values as props:
+
+```javascript
+// vrpc.js - module level, static topology, no connection specifics needed
+export const { VrpcProvider, useBackend, useClient } = createVrpc({
+  backends: {
+    workspace: { agent: 'workspace-agent', className: 'Workspace' }
+  }
+})
+
+// App.jsx - the provider may stay mounted the whole time: it remains
+// dormant (no connection) until domain AND broker are available
+function App() {
+  const session = useSession()
+
+  return (
+    <VrpcProvider
+      domain={session?.tenantDomain}
+      broker={session?.brokerUrl}
+      identity={session?.email}
+      username={session?.mqttUser}
+      password={session?.mqttPassword}
+    >
+      {session ? <Workspace /> : <LoginScreen />}
+    </VrpcProvider>
+  )
+}
+```
+
+Each override falls back to the `createVrpc` config value when omitted. `domain` and `broker` are special: they have **no defaults**, and the provider stays dormant - no client, no network traffic, hooks report `connecting` - until both are defined. You can therefore keep the provider mounted through your whole login flow without any risk of a connection to an unintended broker or domain; the first connection attempt starts exactly when both values become available.
+
+Changing any override (or the credentials) tears the connection down and reconnects with the new values - several changes in one render cause a single reconnect. Hooks used outside their provider throw `MISSING_PROVIDER`. If you supply `mqttClientId`, keeping it stable across reconnects is your responsibility.
+
 ### 3. Give a component access to backend functionality
 
 A component can use a single backend, any subset, or all backends. Import the hook from your own `vrpc.js` (it is bound to your configuration) and inject backends by their key (e.g. `'myBackend'`).
