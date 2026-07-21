@@ -7,7 +7,6 @@ export type VrpcErrorCode =
   | 'INSTANCE_CREATION_FAILED' // active/anonymous create() failed
   | 'INSTANCE_ATTACH_FAILED' // passive getInstance() failed
   | 'INSTANCE_NOT_FOUND' // useBackend(name, id): id not among the manager's ids
-  | 'HEALTH_CHECK_FAILED' // a healthCheck poll rejected
   | 'UNKNOWN_BACKEND' // backend key not present in the factory config
   | 'MISSING_PROVIDER' // hook used outside its factory's provider
 

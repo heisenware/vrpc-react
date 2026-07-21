@@ -202,6 +202,83 @@ describe('VrpcProvider & hooks', () => {
     expect(screen.getByTestId('proxy').textContent).toBe('t2')
   })
 
+  it('never serves the previous instance after the id changes', async () => {
+    const { VrpcProvider, useBackend } = makeFactory()
+
+    function Probe ({ id }: { id: string }) {
+      const { backend, status } = useBackend('things', id)
+      return (
+        <span data-testid='probe'>
+          {status}:{backend ? String((backend as any).vrpcInstanceId) : 'none'}
+        </span>
+      )
+    }
+
+    const view = render(
+      <VrpcProvider>
+        <Probe id='t1' />
+      </VrpcProvider>
+    )
+    const client = MockVrpcClient.last
+    await act(async () => {
+      client.connack()
+      client.agentOnline('a2')
+      client.instanceNew(['t1', 't2'], { className: 'Thing', agent: 'a2' })
+      await flush()
+    })
+    expect(screen.getByTestId('probe').textContent).toBe('ready:t1')
+
+    // switching to another EXISTING id must not flash t1's proxy
+    view.rerender(
+      <VrpcProvider>
+        <Probe id='t2' />
+      </VrpcProvider>
+    )
+    expect(screen.getByTestId('probe').textContent).toBe('connecting:none')
+    await act(async () => {
+      await flush()
+    })
+    expect(screen.getByTestId('probe').textContent).toBe('ready:t2')
+  })
+
+  it('supports an undefined id while no instance is selected', async () => {
+    const { VrpcProvider, useBackend } = makeFactory()
+
+    function Probe ({ id }: { id?: string }) {
+      const { backend, status } = useBackend('things', id)
+      return (
+        <span data-testid='probe'>
+          {status}:{backend ? String((backend as any).vrpcInstanceId) : 'none'}
+        </span>
+      )
+    }
+
+    const view = render(
+      <VrpcProvider>
+        <Probe />
+      </VrpcProvider>
+    )
+    const client = MockVrpcClient.last
+    await act(async () => {
+      client.connack()
+      client.agentOnline('a2')
+      client.instanceNew(['t1'], { className: 'Thing', agent: 'a2' })
+      await flush()
+    })
+    // undefined id = id-mode idle, NOT the manager entry
+    expect(screen.getByTestId('probe').textContent).toBe('connecting:none')
+
+    view.rerender(
+      <VrpcProvider>
+        <Probe id='t1' />
+      </VrpcProvider>
+    )
+    await act(async () => {
+      await flush()
+    })
+    expect(screen.getByTestId('probe').textContent).toBe('ready:t1')
+  })
+
   it('isolates two factories sharing a backend key', async () => {
     const factoryA = makeFactory()
     const factoryB = makeFactory()
@@ -319,7 +396,7 @@ describe('VrpcProvider & hooks', () => {
     expect(todosRenders).toBe(todosBefore)
   })
 
-  it('replaces the client on token change', async () => {
+  it('replaces the client on credential change', async () => {
     const { VrpcProvider, useClient } = makeFactory()
 
     function Probe () {
@@ -328,17 +405,17 @@ describe('VrpcProvider & hooks', () => {
     }
 
     const view = render(
-      <VrpcProvider token='token-1'>
+      <VrpcProvider username='alice' password='secret-1'>
         <Probe />
       </VrpcProvider>
     )
     await act(async () => MockVrpcClient.last.connack())
     expect(MockVrpcClient.instances).toHaveLength(1)
     const first = MockVrpcClient.last
-    expect(first.options.token).toBe('token-1')
+    expect(first.options.password).toBe('secret-1')
 
     view.rerender(
-      <VrpcProvider token='token-2'>
+      <VrpcProvider username='alice' password='secret-2'>
         <Probe />
       </VrpcProvider>
     )
@@ -346,7 +423,7 @@ describe('VrpcProvider & hooks', () => {
     expect(MockVrpcClient.instances).toHaveLength(2)
     expect(first.end).toHaveBeenCalledTimes(1)
     const second = MockVrpcClient.last
-    expect(second.options.token).toBe('token-2')
+    expect(second.options.password).toBe('secret-2')
     expect(screen.getByTestId('status').textContent).toBe('connecting')
     await act(async () => second.connack())
     expect(screen.getByTestId('status').textContent).toBe('connected')

@@ -70,7 +70,6 @@ The example is also a live demo of the failure semantics:
 Take a look at the code to see how little boilerplate is required:
 
 - **`backend/TodoList.js`**: a standard class extending `EventEmitter`. When the list changes, it calls `this.emit('update', this.todos)`.
-- **`backend/agent.js`**: registers `TodoList` plus a tiny `Health` class (`static check ()`) that the frontend's `healthCheck` option polls.
 - **`frontend/src/vrpc.ts`**: one `createVrpc` call defines the topology and exports the bound `VrpcProvider`, `useBackend`, and `useClient`.
 - **`frontend/src/App.tsx`**: `useBackend<TodoListApi>('todos')` returns `{ backend, error, status }`; subscriptions work like on a local `EventEmitter`. VRPC handles the entire distributed network layer under the hood using MQTT.
 - **`frontend/src/main.tsx`**: runs under `<React.StrictMode>` - the library is fully StrictMode-safe.

@@ -111,6 +111,10 @@ export class MockVrpcClient extends MiniEmitter {
   delete = vi.fn(async () => true)
   callStatic = vi.fn(async () => true)
   callAll = vi.fn(async () => [])
+  // the client-side cache of known instances (queried at agent-online)
+  getAvailableInstances = vi.fn(
+    (_options?: { className?: string, agent?: string }) => [] as string[]
+  )
 
   constructor (options: any) {
     super()

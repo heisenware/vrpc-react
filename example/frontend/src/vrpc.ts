@@ -13,9 +13,7 @@ export const { VrpcProvider, useBackend, useClient } = createVrpc({
       // By specifying an instance name, VRPC ensures all users
       // connect to the EXACT SAME shared TodoList object!
       instance: 'shared-global-todos',
-      args: [], // constructor arguments
-      // Polls the agent's static Health.check() (see backend/agent.js)
-      healthCheck: { intervalMs: 30000 }
+      args: [] // constructor arguments
     }
   },
   debug: true

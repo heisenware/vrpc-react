@@ -43,6 +43,11 @@ export function useTypeChecks () {
   const thing = useBackend<TodoApi>('things', 't-42')
   expectTypeOf(thing.backend).toEqualTypeOf<Proxied<TodoApi> | null>()
 
+  // an undefined id (no instance selected yet) is a valid call shape
+  const maybeId: string | undefined = undefined
+  const maybeThing = useBackend<TodoApi>('things', maybeId)
+  expectTypeOf(maybeThing).toEqualTypeOf<UseBackendResult<Proxied<TodoApi>>>()
+
   // unknown keys are compile errors
   // @ts-expect-error - 'nope' is not a configured backend
   useBackend('nope')

@@ -267,6 +267,129 @@ describe('createVrpcStore', () => {
     expect(onError).toHaveBeenCalledWith(error)
   })
 
+  it('reseeds manager ids from the client cache after an agent bounce', () => {
+    const { store } = attach()
+    client.connack()
+    client.agentOnline('a2')
+    client.instanceNew(['t1', 't2'], { className: 'Thing', agent: 'a2' })
+    expect(store.getBackend('manager').ids).toEqual(['t1', 't2'])
+
+    client.agentOffline('a2')
+    expect(store.getBackend('manager').ids).toEqual([])
+
+    // vrpc does NOT re-emit instanceNew after an agent bounce; the
+    // client cache is the only source of truth
+    client.getAvailableInstances.mockReturnValue(['t1', 't2'])
+    client.agentOnline('a2')
+    const entry = store.getBackend('manager')
+    expect(entry.status).toBe('ready')
+    expect(entry.ids).toEqual(['t1', 't2'])
+    expect(entry.error).toBeNull()
+  })
+
+  it('reattaches passive backends from the client cache after an agent bounce', async () => {
+    const { store } = attach()
+    client.connack()
+    client.instanceNew(['passive-1'], { className: 'Passive', agent: 'a1' })
+    await flush()
+    expect(store.getBackend('passive').status).toBe('ready')
+
+    client.agentOffline('a1')
+    expect(store.getBackend('passive').status).toBe('offline')
+
+    client.getInstance.mockClear()
+    client.getAvailableInstances.mockReturnValue(['passive-1'])
+    client.agentOnline('a1')
+    await flush()
+    expect(client.getInstance).toHaveBeenCalledWith('passive-1', {
+      className: 'Passive',
+      agent: 'a1'
+    })
+    expect(store.getBackend('passive').status).toBe('ready')
+  })
+
+  it('ignores a repeated agent-online for ready backends', async () => {
+    const { store } = attach()
+    client.connack()
+    client.agentOnline('a1')
+    client.instanceNew(['passive-1'], { className: 'Passive', agent: 'a1' })
+    await flush()
+    expect(store.getBackend('passive').status).toBe('ready')
+    const proxy = store.getBackend('passive').backend
+    client.getInstance.mockClear()
+    client.create.mockClear()
+
+    // agents republish retained agentInfo on every broker reconnect
+    client.agentOnline('a1')
+    await flush()
+    expect(store.getBackend('passive').status).toBe('ready')
+    expect(store.getBackend('passive').backend).toBe(proxy)
+    expect(client.getInstance).not.toHaveBeenCalled()
+    expect(client.create).not.toHaveBeenCalled()
+  })
+
+  it('re-creates active instances when their instance disappears', async () => {
+    const { store } = attach()
+    client.connack()
+    client.agentOnline('a1')
+    await flush()
+    expect(store.getBackend('active').status).toBe('ready')
+    client.create.mockClear()
+
+    client.instanceGone(['active-1'], { className: 'Active', agent: 'a1' })
+    await flush()
+    expect(client.create).toHaveBeenCalledTimes(1)
+    const entry = store.getBackend('active')
+    expect(entry.status).toBe('ready')
+    expect(entry.error).toBeNull()
+    // active backends self-heal: INSTANCE_GONE is not reported as error
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  it('late create resolutions do not overwrite AGENT_OFFLINE', async () => {
+    const gate = deferred<any>()
+    client.create.mockImplementationOnce(() => gate.promise)
+    const { store } = attach()
+    client.connack()
+    client.agentOnline('a1') // create hangs on the gate
+    client.agentOffline('a1') // per-key generation moves
+    gate.resolve(makeProxy('late'))
+    await flush()
+    const entry = store.getBackend('active')
+    expect(entry.status).toBe('offline')
+    expect(entry.error?.code).toBe('AGENT_OFFLINE')
+    expect(entry.backend).toBeNull()
+  })
+
+  it('manager get and delete scope calls to their class', async () => {
+    const { store } = attach()
+    client.connack()
+    const manager = store.getBackend('manager').backend
+    await manager.get('t1')
+    expect(client.getInstance).toHaveBeenCalledWith('t1', {
+      className: 'Thing',
+      agent: 'a2',
+      noWait: true
+    })
+    await manager.delete('t1')
+    expect(client.delete).toHaveBeenCalledWith('t1', {
+      className: 'Thing',
+      agent: 'a2'
+    })
+  })
+
+  it('object-form callStatic inherits the backend defaults', async () => {
+    const { store } = attach()
+    client.connack()
+    const manager = store.getBackend('manager').backend
+    await manager.callStatic({ functionName: 'doIt' })
+    expect(client.callStatic).toHaveBeenCalledWith({
+      functionName: 'doIt',
+      className: 'Thing',
+      agent: 'a2'
+    })
+  })
+
   it('detach removes all listeners and stops reacting', () => {
     const { store, detach } = attach()
     client.connack()
@@ -276,45 +399,5 @@ describe('createVrpcStore', () => {
     client.agentOnline('a1')
     expect(client.create).not.toHaveBeenCalled()
     expect(store.getBackend('active').status).toBe('connecting')
-  })
-
-  it('runs health checks and keeps the proxy on failure', async () => {
-    vi.useFakeTimers()
-    try {
-      const backends: ResolvedConfig['backends'] = {
-        active: {
-          agent: 'a1',
-          className: 'Active',
-          instance: 'active-1',
-          args: [1],
-          healthCheck: { intervalMs: 1000 }
-        }
-      }
-      const { store } = attach(backends)
-      client.connack()
-      client.agentOnline('a1')
-      await vi.advanceTimersByTimeAsync(0)
-      expect(store.getBackend('active').status).toBe('ready')
-
-      client.callStatic.mockRejectedValueOnce(new Error('no pulse'))
-      await vi.advanceTimersByTimeAsync(1000)
-      expect(client.callStatic).toHaveBeenCalledWith({
-        agent: 'a1',
-        className: 'Health',
-        functionName: 'check'
-      })
-      const failed = store.getBackend('active')
-      expect(failed.status).toBe('error')
-      expect(failed.error?.code).toBe('HEALTH_CHECK_FAILED')
-      expect(failed.backend).not.toBeNull() // proxy retained
-      expect(onError).toHaveBeenCalledWith(failed.error)
-
-      await vi.advanceTimersByTimeAsync(1000) // next poll succeeds
-      const recovered = store.getBackend('active')
-      expect(recovered.status).toBe('ready')
-      expect(recovered.error).toBeNull()
-    } finally {
-      vi.useRealTimers()
-    }
   })
 })

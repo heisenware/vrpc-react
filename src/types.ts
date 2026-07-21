@@ -73,11 +73,6 @@ export interface VrpcBackendConfig {
   instance?: string
   /** Constructor arguments; providing this makes the backend active (it creates the instance) */
   args?: readonly unknown[]
-  /**
-   * Poll the agent's static `Health.check()` periodically.
-   * `true` uses the default interval (30000 ms).
-   */
-  healthCheck?: boolean | { intervalMs?: number }
 }
 
 export interface VrpcConfig<
@@ -88,7 +83,7 @@ export interface VrpcConfig<
 > {
   /** VRPC domain, default 'vrpc' */
   domain?: string
-  /** MQTT broker WebSocket URL, default 'wss://vrpc.io/mqtt' */
+  /** MQTT broker WebSocket URL, default 'wss://broker.hivemq.com:8884/mqtt' */
   broker?: string
   /** Declarative backend mapping, default {} */
   backends?: B
@@ -114,7 +109,6 @@ export interface VrpcProviderProps {
   children: ReactNode
   username?: string
   password?: string
-  token?: string
   /**
    * Called for connection problems and backend lifecycle errors.
    * Identity changes never affect the connection (consumed via ref).
@@ -210,10 +204,14 @@ export type ManagerKeys<B> = {
 export type InstanceKeys<B> = Exclude<keyof B, ManagerKeys<B>>
 
 export interface UseBackendHook<B extends Record<string, VrpcBackendConfig>> {
-  /** Proxy of one managed instance of a multi-instance backend */
+  /**
+   * Proxy of one managed instance of a multi-instance backend.
+   * Passing `undefined` (no instance selected yet) is allowed and
+   * yields a `connecting` result - hooks cannot be called conditionally.
+   */
   <T = VrpcProxy>(
     name: ManagerKeys<B> & string,
-    id: string
+    id: string | undefined
   ): UseBackendResult<Proxied<T>>
   /** Manager object of a multi-instance backend */
   <T = VrpcProxy>(name: ManagerKeys<B> & string): UseManagerResult<T>

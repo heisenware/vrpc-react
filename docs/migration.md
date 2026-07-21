@@ -61,23 +61,35 @@ const { backend, status } = useBackend('todos')
 if (status === 'connecting') return <Spinner />
 ```
 
-## 6. `checkHealth` is now `healthCheck`
+## 6. `checkHealth` was removed
+
+The `checkHealth` option (and its `Health.check()` class convention) is gone. It existed primarily to work around missing reconnect handling: with a 3-hour keepalive, connections could die silently, and the poll doubled as liveness traffic and failure detector.
+
+Version 1.0 makes it obsolete: the keepalive is 30 seconds (dead connections are detected within a minute), broker reconnects recover all backends automatically, and agent liveness is tracked through the MQTT last-will (`AGENT_OFFLINE` surfaces even on hard crashes). See [Reconnection and message delivery](api.md#reconnection-and-message-delivery).
+
+If you additionally need end-to-end RPC liveness (detecting an agent that is connected but wedged), poll it yourself with `useClient()`:
 
 ```js
-// before
-todos: { agent: 'a1', className: 'TodoList', checkHealth: true }
-
-// after (interval configurable, default 30000 ms)
-todos: { agent: 'a1', className: 'TodoList', healthCheck: { intervalMs: 30000 } }
+const { client } = useClient()
+// e.g. in an interval:
+await client.callStatic({ agent: 'my-agent', className: 'MyClass', functionName: 'ping' })
 ```
-
-Health failures now set the backend's `error`/`status` (code `HEALTH_CHECK_FAILED`, the proxy is retained) and call `onError`; previously they were only logged to the console. The agent must still register a class named `Health` with a static `check()` function.
 
 ## 7. Connection behavior changes
 
 - The MQTT `keepalive` now defaults to 30 seconds (vrpc's default). It was previously hardcoded to 3 hours. `keepalive`, `timeout`, and `log` are new passthrough options of `createVrpc`.
 - Changing the `onError` prop identity no longer tears down the connection. Passing inline arrow functions is safe.
-- Changing `token`, `username`, or `password` performs a clean reconnect with a fresh client.
+- Changing `username` or `password` performs a clean reconnect with a fresh client.
+- The `token` provider prop was removed. It was an opinionated convenience on top of MQTT (vrpc simply used the token as the MQTT password). Pass your token as `password` instead:
+
+  ```jsx
+  // before
+  <VrpcProvider token='my-token'>
+
+  // after
+  <VrpcProvider password='my-token'>
+  ```
+
 - Broker-level connection loss is now handled: all backends report `offline` (`CLIENT_OFFLINE`) and recover automatically when the connection returns. Previously dead proxies were kept silently.
 - React `StrictMode` is fully supported.
 

@@ -8,7 +8,6 @@ import type {
   VrpcManager
 } from './types'
 
-const DEFAULT_HEALTH_INTERVAL_MS = 30000
 const EMPTY_IDS: readonly string[] = Object.freeze([])
 
 export interface ResolvedConfig {
@@ -41,16 +40,12 @@ export interface VrpcStore {
   getBackend: (key: string) => BackendEntry
   assertBackend: (key: string) => void
   subscribe: (key: string, callback: () => void) => () => void
+  /** Subscribe to client-entry changes (separate from backend keys) */
+  subscribeClient: (callback: () => void) => () => void
 }
 
 function isManagerConfig (config: VrpcBackendConfig): boolean {
   return !config.instance && !config.args
-}
-
-function healthIntervalMs (config: VrpcBackendConfig): number | null {
-  if (!config.healthCheck) return null
-  if (config.healthCheck === true) return DEFAULT_HEALTH_INTERVAL_MS
-  return config.healthCheck.intervalMs ?? DEFAULT_HEALTH_INTERVAL_MS
 }
 
 export function createVrpcStore (
@@ -78,6 +73,24 @@ export function createVrpcStore (
   // detached or has gone offline while the promise was in flight.
   let epoch = 0
 
+  // Per-key generations additionally invalidate in-flight resolutions
+  // when THIS backend's world changed (agent offline, instance gone)
+  // without a client-level epoch bump.
+  const generations: Record<string, number> = {}
+  const bumpGeneration = (key: string) => {
+    generations[key] = (generations[key] ?? 0) + 1
+  }
+  const guard = (key: string) => {
+    const startEpoch = epoch
+    const startGeneration = generations[key] ?? 0
+    return () =>
+      epoch === startEpoch && (generations[key] ?? 0) === startGeneration
+  }
+
+  // Internal notification channel for the client entry; NUL cannot
+  // appear in a user-defined backend key.
+  const CLIENT_CHANNEL = '\u0000client'
+
   const notify = (key: string) => {
     listeners.get(key)?.forEach(callback => callback())
   }
@@ -92,7 +105,7 @@ export function createVrpcStore (
       return
     }
     clientEntry = next
-    notify('$client')
+    notify(CLIENT_CHANNEL)
   }
 
   const setEntry = (key: string, patch: Partial<BackendEntry>) => {
@@ -137,7 +150,12 @@ export function createVrpcStore (
         agent: backendConfig.agent
       }
     }
-    return functionName
+    // object form: fill in the backend's defaults for omitted fields
+    return {
+      className: backendConfig.className,
+      agent: backendConfig.agent,
+      ...functionName
+    }
   }
 
   const createManager = (key: string): VrpcManager => {
@@ -153,11 +171,15 @@ export function createVrpcStore (
         }),
       get: async id =>
         requireClient().getInstance(id, {
+          className: backendConfig.className,
           agent: backendConfig.agent,
           noWait: true
         }),
       delete: async id =>
-        requireClient().delete(id, { agent: backendConfig.agent }),
+        requireClient().delete(id, {
+          className: backendConfig.className,
+          agent: backendConfig.agent
+        }),
       callStatic: (async (
         functionName: string | VrpcCallOptions,
         ...args: unknown[]
@@ -227,46 +249,109 @@ export function createVrpcStore (
   // Event handlers
   // ----------------------------------------------------
 
+  // The client's own cache of currently known instances. Needed because
+  // vrpc does NOT re-emit instanceNew after an agent bounce: the class
+  // cache survives agent-offline, so an unchanged classInfo republish
+  // diffs to nothing. The cache is the source of truth at agent-online.
+  const availableInstances = (
+    backendConfig: VrpcBackendConfig
+  ): readonly string[] => {
+    if (!client) return EMPTY_IDS
+    try {
+      return client.getAvailableInstances({
+        className: backendConfig.className,
+        agent: backendConfig.agent
+      })
+    } catch {
+      return EMPTY_IDS
+    }
+  }
+
+  const createActive = (key: string) => {
+    const backendConfig = config.backends[key]
+    const currentClient = client
+    if (!currentClient || !backendConfig.args) return
+    const alive = guard(key)
+    currentClient
+      .create({
+        agent: backendConfig.agent,
+        className: backendConfig.className,
+        instance: backendConfig.instance,
+        args: backendConfig.args,
+        cacheProxy: true
+      })
+      .then(proxy => {
+        if (!alive()) return
+        debug(
+          `Created instance '${backendConfig.instance ?? '<anonymous>'}' for backend '${key}'`
+        )
+        setEntry(key, { backend: proxy, error: null, status: 'ready' })
+      })
+      .catch((cause: unknown) => {
+        if (!alive()) return
+        const error = new VrpcError(
+          'INSTANCE_CREATION_FAILED',
+          `Could not create instance '${backendConfig.instance ?? '<anonymous>'}' for backend '${key}'`,
+          { cause, backendKey: key, agent: backendConfig.agent }
+        )
+        setEntry(key, { backend: null, error, status: 'error' })
+        onError(error)
+      })
+  }
+
+  const attachPassive = (key: string) => {
+    const backendConfig = config.backends[key]
+    const currentClient = client
+    if (!currentClient || !backendConfig.instance) return
+    const alive = guard(key)
+    currentClient
+      .getInstance(backendConfig.instance, {
+        className: backendConfig.className,
+        agent: backendConfig.agent
+      })
+      .then(proxy => {
+        if (!alive()) return
+        setEntry(key, { backend: proxy, error: null, status: 'ready' })
+      })
+      .catch((cause: unknown) => {
+        if (!alive()) return
+        const error = new VrpcError(
+          'INSTANCE_ATTACH_FAILED',
+          `Could not attach to backend instance '${backendConfig.instance}'`,
+          { cause, backendKey: key, agent: backendConfig.agent }
+        )
+        setEntry(key, { backend: null, error, status: 'error' })
+        onError(error)
+      })
+  }
+
   const handleAgentOnline = (agent: string) => {
     for (const key of backendsOfAgent(agent)) {
       const backendConfig = config.backends[key]
+      const entry = entries[key]
       if (isManagerConfig(backendConfig)) {
-        setEntry(key, { error: null, status: 'ready' })
+        // seed ids from the client's cache; later diffs arrive as
+        // instanceNew/instanceGone events
+        const cached = availableInstances(backendConfig)
+        const ids =
+          cached.length > 0 ? Object.freeze([...cached]) : entry.ids ?? EMPTY_IDS
+        setEntry(key, { ids, error: null, status: 'ready' })
       } else if (backendConfig.args) {
         // active or anonymous instance: create (attaches if it already exists)
-        const entry = entries[key]
         if (entry.status === 'ready' && entry.backend) continue
-        const startEpoch = epoch
-        const currentClient = client
-        if (!currentClient) continue
-        currentClient
-          .create({
-            agent: backendConfig.agent,
-            className: backendConfig.className,
-            instance: backendConfig.instance,
-            args: backendConfig.args,
-            cacheProxy: true
-          })
-          .then(proxy => {
-            if (epoch !== startEpoch) return
-            debug(
-              `Created instance '${backendConfig.instance ?? '<anonymous>'}' for backend '${key}'`
-            )
-            setEntry(key, { backend: proxy, error: null, status: 'ready' })
-          })
-          .catch((cause: unknown) => {
-            if (epoch !== startEpoch) return
-            const error = new VrpcError(
-              'INSTANCE_CREATION_FAILED',
-              `Could not create instance '${backendConfig.instance ?? '<anonymous>'}' for backend '${key}'`,
-              { cause, backendKey: key, agent }
-            )
-            setEntry(key, { backend: null, error, status: 'error' })
-            onError(error)
-          })
+        createActive(key)
       } else {
-        // passive instance: clear a stale error, wait for its instanceNew
-        setEntry(key, { error: null, status: 'connecting' })
+        // passive instance: attach right away if the instance is already
+        // known, otherwise wait for its instanceNew
+        if (entry.status === 'ready' && entry.backend) continue
+        if (
+          backendConfig.instance &&
+          availableInstances(backendConfig).includes(backendConfig.instance)
+        ) {
+          attachPassive(key)
+        } else {
+          setEntry(key, { error: null, status: 'connecting' })
+        }
       }
     }
   }
@@ -274,6 +359,8 @@ export function createVrpcStore (
   const handleAgentOffline = (agent: string) => {
     for (const key of backendsOfAgent(agent)) {
       const backendConfig = config.backends[key]
+      // invalidate in-flight resolutions targeting the lost agent
+      bumpGeneration(key)
       const error = new VrpcError(
         'AGENT_OFFLINE',
         `Lost agent '${agent}' required for backend '${key}'`,
@@ -307,28 +394,7 @@ export function createVrpcStore (
         added.includes(backendConfig.instance)
       ) {
         // passive instance backend: attach now that its instance exists
-        const startEpoch = epoch
-        const currentClient = client
-        if (!currentClient) continue
-        currentClient
-          .getInstance(backendConfig.instance, {
-            className: backendConfig.className,
-            agent: backendConfig.agent
-          })
-          .then(proxy => {
-            if (epoch !== startEpoch) return
-            setEntry(key, { backend: proxy, error: null, status: 'ready' })
-          })
-          .catch((cause: unknown) => {
-            if (epoch !== startEpoch) return
-            const error = new VrpcError(
-              'INSTANCE_ATTACH_FAILED',
-              `Could not attach to backend instance '${backendConfig.instance}'`,
-              { cause, backendKey: key, agent: backendConfig.agent }
-            )
-            setEntry(key, { backend: null, error, status: 'error' })
-            onError(error)
-          })
+        attachPassive(key)
       }
     }
   }
@@ -350,13 +416,23 @@ export function createVrpcStore (
         backendConfig.instance &&
         gone.includes(backendConfig.instance)
       ) {
-        const error = new VrpcError(
-          'INSTANCE_GONE',
-          `Lost instance '${backendConfig.instance}' required for backend '${key}'`,
-          { backendKey: key, agent: backendConfig.agent }
-        )
-        setEntry(key, { backend: null, error, status: 'offline' })
-        onError(error)
+        bumpGeneration(key)
+        if (backendConfig.args) {
+          // active backend owns its instance: self-heal by re-creating
+          debug(
+            `Instance '${backendConfig.instance}' of backend '${key}' disappeared - re-creating`
+          )
+          setEntry(key, { backend: null, error: null, status: 'connecting' })
+          createActive(key)
+        } else {
+          const error = new VrpcError(
+            'INSTANCE_GONE',
+            `Lost instance '${backendConfig.instance}' required for backend '${key}'`,
+            { backendKey: key, agent: backendConfig.agent }
+          )
+          setEntry(key, { backend: null, error, status: 'offline' })
+          onError(error)
+        }
       }
     }
   }
@@ -384,57 +460,6 @@ export function createVrpcStore (
   }
 
   // ----------------------------------------------------
-  // Health checks
-  // ----------------------------------------------------
-
-  const healthTimers: Array<ReturnType<typeof setInterval>> = []
-
-  const startHealthTimers = () => {
-    if (healthTimers.length > 0) return
-    for (const key of Object.keys(config.backends)) {
-      const backendConfig = config.backends[key]
-      const intervalMs = healthIntervalMs(backendConfig)
-      if (intervalMs === null) continue
-      healthTimers.push(
-        setInterval(() => {
-          const currentClient = client
-          if (!currentClient || clientEntry.status !== 'connected') return
-          currentClient
-            .callStatic({
-              agent: backendConfig.agent,
-              className: 'Health',
-              functionName: 'check'
-            })
-            .then(() => {
-              const entry = entries[key]
-              if (entry.error?.code === 'HEALTH_CHECK_FAILED') {
-                setEntry(key, {
-                  error: null,
-                  status: entry.backend ? 'ready' : 'connecting'
-                })
-              }
-            })
-            .catch((cause: unknown) => {
-              const error = new VrpcError(
-                'HEALTH_CHECK_FAILED',
-                `Health check failed for backend '${key}'`,
-                { cause, backendKey: key, agent: backendConfig.agent }
-              )
-              // keep the proxy: in-flight UI stays functional
-              setEntry(key, { error, status: 'error' })
-              onError(error)
-            })
-        }, intervalMs)
-      )
-    }
-  }
-
-  const stopHealthTimers = () => {
-    healthTimers.forEach(timer => clearInterval(timer))
-    healthTimers.length = 0
-  }
-
-  // ----------------------------------------------------
   // Store interface
   // ----------------------------------------------------
 
@@ -445,14 +470,8 @@ export function createVrpcStore (
       setClientEntry({ client: nextClient, status: 'connecting', error: null })
       resetAllEntries()
 
-      const onConnect = () => {
-        handleConnect()
-        startHealthTimers()
-      }
-      const onOffline = () => {
-        stopHealthTimers()
-        handleOffline()
-      }
+      const onConnect = () => handleConnect()
+      const onOffline = () => handleOffline()
       const onReconnect = () => debug('Reconnecting to the MQTT broker...')
       const onAgent = ({ agent, status }: { agent: string, status: string }) => {
         if (status === 'online') handleAgentOnline(agent)
@@ -469,7 +488,6 @@ export function createVrpcStore (
 
       return () => {
         epoch++
-        stopHealthTimers()
         nextClient.removeListener('connect', onConnect)
         nextClient.removeListener('offline', onOffline)
         nextClient.removeListener('reconnect', onReconnect)
@@ -517,6 +535,10 @@ export function createVrpcStore (
       return () => {
         set.delete(callback)
       }
+    },
+
+    subscribeClient (callback: () => void) {
+      return this.subscribe(CLIENT_CHANNEL, callback)
     }
   }
 }

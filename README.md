@@ -16,7 +16,7 @@ Imagine a world where you don't need to write route definitions, API resolvers, 
 - **Truly Reactive:** Built completely on React Hooks (`useBackend`, `useClient`) and Context. As backend instances come online, go offline, or change state, your UI updates automatically.
 - **Type-Safe:** First-class TypeScript support out of the box.
 - **Seamless Connectivity:** Abstracts away all MQTT broker connections, reconnection logic, and NAT traversal. No CORS headaches, no complex reverse proxies.
-- **Auto-Health Checks:** Built-in polling to monitor the health and uptime of your remote distributed agents.
+- **Self-Healing:** Broker disconnects and vanishing agents are detected, surfaced as statuses, and recovered from automatically - including re-established event subscriptions.
 
 ---
 
@@ -90,7 +90,7 @@ import App from './App'
 const root = ReactDOM.createRoot(document.getElementById('root'))
 
 root.render(
-  // You can provide token, username, or password here
+  // You can provide MQTT credentials (username/password) here
   <React.StrictMode>
     <VrpcProvider username='app-user' password='super-secret'>
       <App />
@@ -190,26 +190,27 @@ export default function AdminPanel() {
 ## Good to know
 
 **Event Subscriptions:**
-In case the backend class you are using is an event emitter (in C++, Node, or Python), you can subscribe and unsubscribe to those events on your proxy object just as usual!
+In case the backend class you are using is an event emitter (in C++, Node, or Python), you can subscribe and unsubscribe to those events on your proxy object just as usual! Always pair the subscription with an initial state fetch **in the same effect**, keyed on the proxy:
 
 ```javascript
 useEffect(() => {
-  if (!proxy) return
+  if (!backend) return
 
-  const handleUpdate = data => console.log('Received data:', data)
-  proxy.on('update', handleUpdate)
+  // 1. resync the current state on every (re)connect
+  backend.getState().then(setState)
 
-  return () => proxy.off('update', handleUpdate) // cleanup
-}, [proxy])
+  // 2. subscribe to changes
+  const handleUpdate = state => setState(state)
+  backend.on('update', handleUpdate)
+
+  return () => backend.off('update', handleUpdate) // cleanup
+}, [backend])
 ```
 
-VRPC will handle the remote subscription over MQTT for you automatically. Event subscriptions are the highly recommended way to realize front-end notifications whenever something on the backend changes.
+VRPC handles the remote subscription over MQTT for you automatically. Event subscriptions are the highly recommended way to realize front-end notifications whenever something on the backend changes.
 
-**Health Checks:**
-Set `healthCheck: true` (or `healthCheck: { intervalMs }`) on a backend configuration to let the client poll the corresponding agent periodically. The agent must register a class named `Health` exposing a static `check()` function. Failures surface in the backend's `error`/`status` and via `onError`. See the [API reference](docs/api.md#health-checks) for details.
-
-**Resilience:**
-Broker disconnects, vanishing agents, and lost instances degrade the affected backends to `status: 'offline'` and recover automatically when they return - no reloads, no manual re-subscription.
+**Connection behavior & recovery:**
+The MQTT keepalive (30 s by default) detects dead connections within about a minute - including background tabs that browsers throttle. The client then reconnects automatically, agents and instances re-announce themselves through retained MQTT messages, and every backend recovers to `ready` on its own; remote event subscriptions are re-established too. One consequence of MQTT's non-persistent sessions: messages published while you were disconnected are **not** delivered afterwards. The fetch-and-subscribe pattern above closes that gap - after every recovery the proxy object is replaced, your effect re-runs, and the state resyncs. Details in the [API reference](docs/api.md#reconnection-and-message-delivery).
 
 ---
 

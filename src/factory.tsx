@@ -30,7 +30,7 @@ const { VrpcClient } = vrpc
 function resolveConfig (config: VrpcConfig<any>): ResolvedConfig {
   return {
     domain: config.domain ?? 'vrpc',
-    broker: config.broker ?? 'wss://vrpc.io/mqtt',
+    broker: config.broker ?? 'wss://broker.hivemq.com:8884/mqtt',
     backends: config.backends ?? {},
     identity: config.identity,
     mqttClientId: config.mqttClientId,
@@ -57,7 +57,6 @@ export function createVrpc<
     children,
     username,
     password,
-    token,
     onError
   }: VrpcProviderProps) {
     const onErrorRef = useRef(onError)
@@ -77,7 +76,6 @@ export function createVrpc<
       const client = new VrpcClient({
         broker: resolved.broker,
         domain: resolved.domain,
-        token,
         username,
         password,
         identity: resolved.identity,
@@ -107,7 +105,7 @@ export function createVrpc<
           client.end().catch(() => {})
         })
       }
-    }, [store, token, username, password])
+    }, [store, username, password])
 
     return (
       <StoreContext.Provider value={store}>{children}</StoreContext.Provider>
@@ -125,7 +123,18 @@ export function createVrpc<
     return store
   }
 
+  const IDLE_ID_RESULT: UseBackendResult<Proxied<VrpcProxy>> = Object.freeze({
+    backend: null,
+    error: null,
+    status: 'connecting' as BackendStatus
+  })
+
   function useBackend (name: string, id?: string): any {
+    // id-mode is decided by call arity so that `useBackend(key, maybeId)`
+    // with maybeId === undefined stays in id-mode (hooks cannot be
+    // called conditionally, so this shape must be supported)
+    const idMode = arguments.length >= 2
+
     const store = useStore()
     store.assertBackend(name)
 
@@ -140,33 +149,38 @@ export function createVrpc<
     )
 
     // Resolution of a single managed instance (useBackend(name, id))
-    const [idResult, setIdResult] = useState<UseBackendResult<Proxied<VrpcProxy>>>({
-      backend: null,
-      error: null,
-      status: 'connecting'
-    })
+    const [idState, setIdState] = useState<{
+      forId: string | null
+      value: UseBackendResult<Proxied<VrpcProxy>>
+    }>({ forId: null, value: IDLE_ID_RESULT })
 
     useEffect(() => {
-      if (!id) return
+      if (!idMode || !id) return
       const managerReady =
         entry.status === 'ready' && entry.ids !== undefined && entry.backend
       if (!managerReady) {
-        setIdResult({
-          backend: null,
-          error: entry.error,
-          status: entry.status as BackendStatus
+        setIdState({
+          forId: id,
+          value: {
+            backend: null,
+            error: entry.error,
+            status: entry.status as BackendStatus
+          }
         })
         return
       }
       if (!entry.ids!.includes(id)) {
-        setIdResult({
-          backend: null,
-          error: new VrpcError(
-            'INSTANCE_NOT_FOUND',
-            `Instance '${id}' does not exist on backend '${name}'`,
-            { backendKey: name }
-          ),
-          status: 'error'
+        setIdState({
+          forId: id,
+          value: {
+            backend: null,
+            error: new VrpcError(
+              'INSTANCE_NOT_FOUND',
+              `Instance '${id}' does not exist on backend '${name}'`,
+              { backendKey: name }
+            ),
+            status: 'error'
+          }
         })
         return
       }
@@ -174,33 +188,45 @@ export function createVrpc<
       entry.backend
         .get(id)
         .then((proxy: any) => {
-          if (!stale) setIdResult({ backend: proxy, error: null, status: 'ready' })
+          if (stale) return
+          setIdState({
+            forId: id,
+            value: { backend: proxy, error: null, status: 'ready' }
+          })
         })
         .catch((cause: unknown) => {
           if (stale) return
-          setIdResult({
-            backend: null,
-            error: new VrpcError(
-              'INSTANCE_ATTACH_FAILED',
-              `Failed proxy creation for id '${id}' of backend '${name}'`,
-              { cause, backendKey: name }
-            ),
-            status: 'error'
+          setIdState({
+            forId: id,
+            value: {
+              backend: null,
+              error: new VrpcError(
+                'INSTANCE_ATTACH_FAILED',
+                `Failed proxy creation for id '${id}' of backend '${name}'`,
+                { cause, backendKey: name }
+              ),
+              status: 'error'
+            }
           })
         })
       return () => {
         stale = true
       }
-    }, [entry, id, name])
+    }, [entry, id, idMode, name])
 
-    if (id) return idResult
+    if (idMode) {
+      if (!id) return IDLE_ID_RESULT
+      // never serve a result that belongs to a previously selected id
+      if (idState.forId !== id) return IDLE_ID_RESULT
+      return idState.value
+    }
     return entry
   }
 
   function useClient (): UseClientResult {
     const store = useStore()
     const subscribe = useCallback(
-      (callback: () => void) => store.subscribe('$client', callback),
+      (callback: () => void) => store.subscribeClient(callback),
       [store]
     )
     return useSyncExternalStore(

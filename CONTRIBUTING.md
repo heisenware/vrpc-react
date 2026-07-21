@@ -26,12 +26,14 @@ npm install
 
 Useful scripts:
 
-| Script              | Purpose                                             |
-| :------------------ | :-------------------------------------------------- |
-| `npm run lint`      | Lint the whole repository                           |
-| `npm run format`    | Auto-fix lint and formatting issues                 |
-| `npm run typecheck` | Type-check the library with TypeScript              |
-| `npm run build`     | Build the distributable bundles + type declarations |
+| Script               | Purpose                                             |
+| :------------------- | :-------------------------------------------------- |
+| `npm run lint`       | Lint the whole repository                           |
+| `npm run format`     | Auto-fix lint and formatting issues                 |
+| `npm run typecheck`  | Type-check the library with TypeScript              |
+| `npm test`           | Run the vitest test suite                           |
+| `npm run test:watch` | Run the tests in watch mode                         |
+| `npm run build`      | Build the distributable bundles + type declarations |
 
 To try your changes against a running system, use the
 [example](example/README.md): start the backend agent and the frontend, which
@@ -49,8 +51,8 @@ committing.
 
 1. Fork and create a feature branch off `master`.
 2. Keep the PR focused on one change.
-3. Make sure `npm run lint`, `npm run typecheck`, and `npm run build` all
-   pass - CI runs exactly these.
+3. Make sure `npm run lint`, `npm run typecheck`, `npm test`, and
+   `npm run build` all pass - CI runs exactly these.
 4. Describe *why* the change is needed, not only what it does.
 
 By contributing, you agree that your contributions will be licensed under the
