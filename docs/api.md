@@ -1,30 +1,62 @@
 # API Reference
 
-The `vrpc-react` library provides seamless integration between your React frontend and your VRPC backend. It is built around a Context Provider and a set of custom hooks to manage connections, agent discovery, and remote function execution effortlessly.
+`vrpc-react` connects your React frontend to VRPC backends. The whole API is one factory call and the artifacts it returns:
+
+- [`createVrpc(config)`](#createvrpcconfig) - define your VRPC topology; returns the provider and the hooks bound to it
+- [`<VrpcProvider>`](#vrpcprovider-component) - supplies credentials and error handling; owns the connection
+- [`useBackend(name, id?)`](#usebackendname-id) - access a configured backend from any component
+- [`useClient()`](#useclient) - reactive access to the raw VRPC client
+- [`VrpcError`](#error-model) - every error carries a machine-readable `code`
 
 ---
 
-## `createVrpcProvider(options)`
+## `createVrpc(config)`
 
-A factory function that initializes the VRPC connection and generates a React Context Provider configured for your specific MQTT broker and domains.
+A factory that registers your backends and returns `{ VrpcProvider, useBackend, useClient }`, all bound to this configuration. Call it once at module level and export the result:
 
-### Parameters
+```ts
+import { createVrpc } from 'vrpc-react'
 
-Takes a single configuration object with the following properties:
+export const { VrpcProvider, useBackend, useClient } = createVrpc({
+  domain: 'my-app-domain',
+  broker: 'wss://broker.hivemq.com:8884/mqtt',
+  backends: {
+    todos: { agent: 'todo-agent', className: 'TodoList', instance: 'shared-todos' }
+  }
+})
+```
 
-| Property | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `domain` | `string` | **Required** | The global VRPC domain your agents are operating in. |
-| `broker` | `string` | **Required** | The WebSocket URL of your MQTT broker (e.g., `wss://broker.hivemq.com:8884/mqtt`). |
-| `backends` | `Record<string, BackendConfig>` | `{}` | A declarative mapping of backend class instances your app depends on. |
-| `token` | `string` | `undefined` | Optional authentication token if your MQTT broker requires access management. |
-| `debug` | `boolean` | `false` | When true, enables verbose logging of incoming and outgoing VRPC messages in the console. |
+Each factory is fully isolated: you can create several (even with identical backend key names) and mount their providers anywhere in the tree, including on child components.
 
-**Understanding Backend Architectures:**
+For TypeScript users the backend keys are inferred, so `useBackend('todoz')` is a compile error.
 
-You can use any number of backends with VRPC by adding several objects under the `backends` property. Think of `myBackend` as a remotely available instance of the class you specified in the `className` property.
+### Options
 
-Depending on your backend architecture, `vrpc-react` allows you to manage instances in 4 distinct ways by simply omitting or including specific properties:
+| Property         | Type                            | Default                | Description                                                          |
+| :--------------- | :------------------------------ | :--------------------- | :------------------------------------------------------------------- |
+| `domain`         | `string`                        | `'vrpc'`               | The VRPC domain your agents are operating in.                        |
+| `broker`         | `string`                        | `'wss://vrpc.io/mqtt'` | WebSocket URL of your MQTT broker.                                   |
+| `backends`       | `Record<string, BackendConfig>` | `{}`                   | Declarative mapping of the backend instances your app depends on.    |
+| `identity`       | `string`                        | auto-generated         | Custom identity announced to the VRPC system.                        |
+| `mqttClientId`   | `string`                        | auto-generated         | Explicit MQTT client id.                                             |
+| `bestEffort`     | `boolean`                       | `true`                 | Use MQTT QoS 0 (fire-and-forget) messaging.                          |
+| `requiresSchema` | `boolean`                       | `false`                | Only accept backend instances that publish a schema.                 |
+| `timeout`        | `number`                        | `12000`                | RPC and connect timeout in milliseconds.                             |
+| `keepalive`      | `number`                        | `30`                   | MQTT keepalive in seconds.                                           |
+| `log`            | `'console' \| Logger`           | `'console'`            | Logger passthrough to the underlying vrpc client.                    |
+| `debug`          | `boolean`                       | `false`                | Verbose console logging of connection and instance lifecycle events. |
+
+### `BackendConfig`
+
+| Property      | Type                        | Required | Description                                                                                 |
+| :------------ | :-------------------------- | :------- | :------------------------------------------------------------------------------------------ |
+| `agent`       | `string`                    | yes      | Name of the agent that serves the class.                                                    |
+| `className`   | `string`                    | yes      | Name of the remotely registered class.                                                      |
+| `instance`    | `string`                    | no       | Named instance to use (see architectures below).                                            |
+| `args`        | `unknown[]`                 | no       | Constructor arguments; providing this makes the backend active (it creates the instance).   |
+| `healthCheck` | `boolean \| { intervalMs }` | no       | Periodic poll of the agent's static `Health.check()` (see [Health checks](#health-checks)). |
+
+**The four backend architectures** - which properties you provide determines how the backend is managed:
 
 1. **Create an anonymous instance:**
    - Provide: `agent`, `className`, `args`
@@ -34,155 +66,222 @@ Depending on your backend architecture, `vrpc-react` allows you to manage instan
    - Provide: `agent`, `className`, `instance`
 4. **Manage all named instances of a class:** (Multi-instance)
    - Provide: `agent`, `className` (omit `instance` and `args`)
-   - _In this case, your backend object acts as a manager for all instances of the defined `className`._
-
-#### Example Configuration
-
-```jsx
-import { createVrpcProvider } from 'vrpc-react'
-
-export const VrpcProvider = createVrpcProvider({
-  domain: 'my-app-domain',
-  broker: 'wss://broker.hivemq.com:8884/mqtt',
-  backends: {
-    // A shared Todo list instance
-    todos: {
-      agent: 'todo-agent',
-      className: 'TodoList',
-      instance: 'shared-todos'
-    },
-    // A specific user's profile, passing arguments to the constructor if it needs to be created
-    userProfile: {
-      agent: 'database-agent',
-      className: 'UserProfile',
-      instance: 'user-1234',
-      args: ['1234', { loadPreferences: true }]
-    }
-  }
-})
-```
+   - `useBackend` then returns a [manager object](#multi-instance-backends).
 
 ---
 
-## `useBackend(backendId)`
+## `<VrpcProvider>` component
 
-This is the primary hook you will use in your components. It consumes the aliases you defined in your `backends` configuration and returns a fully strongly-typed proxy of your remote class.
+The component returned by `createVrpc`. It owns the MQTT connection (one fresh client per mount and per credential set) and always renders its children immediately - connection progress flows through the hooks' `status`.
+
+### Props
+
+| Prop       | Type                         | Default         | Description                                                    |
+| :--------- | :--------------------------- | :-------------- | :------------------------------------------------------------- |
+| `username` | `string`                     | -               | MQTT username, if your broker requires authentication.         |
+| `password` | `string`                     | -               | MQTT password.                                                 |
+| `token`    | `string`                     | -               | Token-based authentication (alternative to username/password). |
+| `onError`  | `(error: VrpcError) => void` | `console.error` | Called for connection problems and backend lifecycle errors.   |
+
+```jsx
+root.render(
+  <VrpcProvider username='app-user' password='super-secret'>
+    <App />
+  </VrpcProvider>
+)
+```
+
+Notes:
+
+- `onError` is consumed through a ref: passing an inline arrow function is safe and never affects the connection.
+- Changing `token`, `username`, or `password` cleanly replaces the connection.
+- `<React.StrictMode>` is fully supported.
+
+---
+
+## `useBackend(name, id?)`
+
+The primary hook. Returns the state of a backend you declared in the `backends` configuration.
 
 ### Parameters
 
-* `backendId` **(string)**: The alias key you defined in the `backends` object (e.g., `'todos'` or `'userProfile'`).
+- `name` **(string)**: the key you used in the `backends` object. Unknown keys throw a `VrpcError` (`UNKNOWN_BACKEND`); for TypeScript users they are already a compile error.
+- `id` **(string, optional)**: for multi-instance backends only - resolve the proxy of one managed instance.
 
 ### Returns
 
-Returns an array (tuple) containing the remote class instance and its initialization status:
+An object `{ backend, error, status }`:
 
-* `[backend, status]`
-  * `backend` **(Proxy | null)**: The remote object proxy. You can call methods directly on this object (e.g., `await backend.addTodo('Buy milk')`).
-  * `status` **('connecting' | 'ready' | 'offline' | 'error')**: The current state of this specific backend instance.
+| Field     | Type                                              | Description                                                           |
+| :-------- | :------------------------------------------------ | :-------------------------------------------------------------------- |
+| `backend` | `Proxied<T> \| null`                              | Proxy of the remote instance; `null` while connecting or unavailable. |
+| `error`   | `VrpcError \| null`                               | Cause of an `offline` or `error` status; `null` when healthy.         |
+| `status`  | `'connecting' \| 'ready' \| 'offline' \| 'error'` | Current backend state (see table below).                              |
+
+For multi-instance backends the result additionally contains `ids` (a reactive, immutable `readonly string[]`), and `backend` is the always-present [manager object](#multi-instance-backends).
+
+### Status semantics
+
+| Status       | Meaning                                                                                                                                 |
+| :----------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
+| `connecting` | Initial state: broker connection, agent, or instance not yet available. Also entered briefly during automatic recovery.                 |
+| `ready`      | The proxy is resolved and callable (managers: the agent is online).                                                                     |
+| `offline`    | Recoverable unavailability: broker connection lost, agent offline, or passive instance gone. `error.code` names the reason. Self-heals. |
+| `error`      | An operation failed (creation, attach, health check, connect). Also self-heals when the underlying condition passes.                    |
+
+One documented exception: a failing health check sets `status: 'error'` but **retains** the proxy in `backend`, so an already-working UI keeps functioning during the investigation.
+
+### Typing the proxy
+
+Pass an interface describing your remote class; every method becomes Promise-returning:
+
+```ts
+interface TodoListApi {
+  addTodo (text: string): Todo
+  getTodos (): Todo[]
+}
+
+const { backend, status } = useBackend<TodoListApi>('todos')
+// backend?.addTodo returns Promise<Todo>
+```
 
 ### Example
 
 ```jsx
-import React, { useState, useEffect } from 'react'
-import { useBackend } from 'vrpc-react'
+import { useBackend } from './vrpc'
 
-export function TodoApp() {
-  const [todos, status] = useBackend('todos')
+export function TodoApp () {
+  const { backend: todos, error, status } = useBackend('todos')
   const [list, setList] = useState([])
 
-  // Fetch initial data when the backend is ready
   useEffect(() => {
-    if (status !== 'ready') return
+    if (!todos) return
     todos.getTodos().then(setList)
+    const handleUpdate = all => setList(all)
+    todos.on('update', handleUpdate)
+    return () => todos.off('update', handleUpdate)
+  }, [todos])
 
-    // Subscribe to backend events!
-    const handleAdd = (newTodo) => setList(prev => [...prev, newTodo])
-    todos.on('todoAdded', handleAdd)
-
-    return () => todos.off('todoAdded', handleAdd)
-  }, [todos, status])
-
-  const handleAddClick = async () => {
-    // Call the remote Node.js/C++ function directly
-    await todos.addTodo('Learn VRPC')
-  }
-
-  if (status === 'connecting') return <p>Connecting to backend...</p>
-  if (status === 'offline') return <p>The backend agent is offline.</p>
-
-  return (
-    <div>
-      <ul>{list.map(t => <li key={t.id}>{t.text}</li>)}</ul>
-      <button onClick={handleAddClick}>Add Todo</button>
-    </div>
-  )
+  if (status === 'connecting') return <p>Connecting...</p>
+  if (error) return <p>Backend problem ({error.code}): {error.message}</p>
+  return <ul>{list.map(t => <li key={t.id}>{t.text}</li>)}</ul>
 }
 ```
 
----
+### Multi-instance backends
 
-## `useClient(domain)`
+If a backend was configured **without** `instance` and `args` (architecture number 4), `useBackend(name)` returns a *manager*. The manager object is referentially stable for the provider's lifetime and always non-null:
 
-A React hook that provides direct access to the raw VRPC client instance for a specific domain. This is primarily used for advanced use cases like dynamic agent discovery, global event listening, or calling static methods before an instance is fully initialized.
+| Member                              | Description                                                                                                                      |
+| :---------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+| `create(id, options?)`              | Create a new named instance. `options`: `{ args, className, agent }` (all optional). Resolves to a proxy.                        |
+| `get(id)`                           | Obtain a proxy to an existing instance.                                                                                          |
+| `delete(id)`                        | Delete a remote instance.                                                                                                        |
+| `callStatic(functionName, ...args)` | Call a static function on the configured class. Also accepts a single options object `{ functionName, args, className, agent }`. |
+| `callAll(functionName, ...args)`    | Call a member function on all instances; resolves to `Array<{ id, val, err }>`. Same calling conventions as `callStatic`.        |
+| `ids`                               | Read-only, immutable array of the currently existing instance ids (also on the hook result, reactively updated).                 |
 
-### Parameters
+While the client is disconnected, manager methods reject with a `VrpcError` (`CLIENT_OFFLINE`).
 
-* `domain` **(string)**: The domain you want to connect to. This must match the domain provided to your `VrpcProvider`.
-
-### Returns
-
-Returns an array (tuple) containing the client instance and its current connection status:
-
-* `[client, status]`
-  * `client` **(VrpcClient | null)**: The raw VRPC client. Will be `null` while initializing.
-  * `status` **('connecting' | 'online' | 'offline' | 'error')**: The current connection state of the MQTT transport layer.
-
-### Example
+**Targeting a specific instance:** pass the instance id as the second hook argument:
 
 ```jsx
-import { useEffect, useState } from 'react'
-import { useClient } from 'vrpc-react'
-
-export function GlobalRadar() {
-  const [client, status] = useClient('my-app-domain')
-  const [agents, setAgents] = useState([])
-
-  useEffect(() => {
-    if (!client) return
-
-    const handleAgent = ({ agent, status }) => {
-      console.log(`Agent ${agent} went ${status}`)
-    }
-
-    client.on('agent', handleAgent)
-    return () => client.off('agent', handleAgent)
-  }, [client])
-
-  if (status !== 'online') return <p>Connecting...</p>
-
-  return <div>Radar Active.</div>
-}
+const { backend, error, status } = useBackend('myManager', 'my-dynamic-id')
 ```
+
+If the id does not exist (yet), `status` is `'error'` with code `INSTANCE_NOT_FOUND`; the hook resolves automatically as soon as the instance appears.
 
 ---
 
-## Raw Client API (`client.*`)
+## `useClient()`
 
-When you access the raw client via `useClient`, it exposes the core VRPC JavaScript API methods for low-level control.
+Reactive access to the raw underlying `VrpcClient` for advanced use cases: agent/class discovery, static calls outside any configured backend, low-level events.
 
-### `client.callStatic(options)`
+### Client result
 
-Executes a static function on a specific class within a specific agent.
+| Field    | Type                                                  | Description                                                        |
+| :------- | :---------------------------------------------------- | :----------------------------------------------------------------- |
+| `client` | `VrpcClient \| null`                                  | The client instance; `null` only before the provider's effect ran. |
+| `status` | `'connecting' \| 'connected' \| 'offline' \| 'error'` | Live MQTT connection state.                                        |
+| `error`  | `VrpcError \| null`                                   | Last connection-level error (e.g. `NETWORK_ERROR`).                |
 
-* **`options.agent`** *(string)*: The name of the target agent.
-* **`options.className`** *(string)*: The registered class name on the backend.
-* **`options.functionName`** *(string)*: The name of the static method to call.
-* **`options.args`** *(Array)*: An array of arguments to pass to the function.
+### Static call example
 
-### `client.on(event, callback)`
+```jsx
+import { useClient } from './vrpc'
 
-Subscribes to global VRPC events (e.g., `agent` discovery, `class` discovery, or custom emitted events).
+export function AdminPanel () {
+  const { client, status } = useClient()
 
-### `client.off(event, callback)`
+  const reboot = async () => {
+    await client.callStatic({
+      agent: 'my-agent',
+      className: 'System',
+      functionName: 'reboot'
+    })
+  }
 
-Removes an active event listener to prevent memory leaks. Always call this in your `useEffect` cleanup function.
+  return <button disabled={status !== 'connected'} onClick={reboot}>Reboot</button>
+}
+```
+
+For the full client API (`callStatic`, `callAll`, `getInstance`, discovery getters, events) see the [vrpc-js documentation](https://github.com/heisenware/vrpc-js).
+
+---
+
+## Error model
+
+Every error surfaced by the library - in hook results and in `onError` - is an instance of the exported `VrpcError` class:
+
+```ts
+class VrpcError extends Error {
+  code: VrpcErrorCode
+  backendKey?: string // which backend was affected, when applicable
+  agent?: string // which agent was involved, when applicable
+}
+```
+
+| Code                       | Meaning                                                                    |
+| :------------------------- | :------------------------------------------------------------------------- |
+| `CONNECTION_FAILED`        | The initial `connect()` was rejected (timeout, authentication refusal).    |
+| `CLIENT_OFFLINE`           | The MQTT connection was lost (also used by manager methods while offline). |
+| `NETWORK_ERROR`            | The underlying MQTT client reported an error.                              |
+| `AGENT_OFFLINE`            | A required agent went offline.                                             |
+| `INSTANCE_GONE`            | A passive backend's instance disappeared.                                  |
+| `INSTANCE_CREATION_FAILED` | Creating an active/anonymous instance failed.                              |
+| `INSTANCE_ATTACH_FAILED`   | Attaching to a passive instance failed.                                    |
+| `INSTANCE_NOT_FOUND`       | `useBackend(name, id)`: the id is not among the manager's ids.             |
+| `HEALTH_CHECK_FAILED`      | A `healthCheck` poll rejected (the proxy is retained).                     |
+| `UNKNOWN_BACKEND`          | Thrown: the key is not present in the factory configuration.               |
+| `MISSING_PROVIDER`         | Thrown: a hook was used outside its factory's provider.                    |
+
+`offline`-flavored conditions (`CLIENT_OFFLINE`, `AGENT_OFFLINE`, `INSTANCE_GONE`) recover automatically: when the broker connection, agent, or instance returns, the affected backends transition back to `ready` on their own.
+
+---
+
+## Health checks
+
+Setting `healthCheck` on a backend makes the client call the static function `check` on a class named `Health` of that backend's agent (default every 30000 ms):
+
+```ts
+backends: {
+  todos: {
+    agent: 'todo-agent',
+    className: 'TodoList',
+    healthCheck: { intervalMs: 30000 } // or simply: true
+  }
+}
+```
+
+Your agent must register such a class:
+
+```js
+class Health {
+  static check () {
+    return true
+  }
+}
+VrpcAdapter.register(Health)
+```
+
+A failing poll sets the backend to `status: 'error'` with code `HEALTH_CHECK_FAILED` (proxy retained) and calls `onError`; the next successful poll restores the previous state. Health polling complements the built-in agent online/offline tracking (MQTT last-will) with true end-to-end RPC liveness.

@@ -1,7 +1,9 @@
 // example/frontend/src/vrpc.ts
-import { createVrpcProvider } from 'vrpc-react';
+import { createVrpc } from 'vrpc-react'
 
-export const VrpcProvider = createVrpcProvider({
+// The factory returns the provider AND the hooks, bound to this config.
+// Backend keys ('todos') are compile-time checked in useBackend calls.
+export const { VrpcProvider, useBackend, useClient } = createVrpc({
   domain: 'vrpc-react-demo',
   broker: 'wss://broker.hivemq.com:8884/mqtt',
   backends: {
@@ -12,8 +14,9 @@ export const VrpcProvider = createVrpcProvider({
       // connect to the EXACT SAME shared TodoList object!
       instance: 'shared-global-todos',
       args: [], // constructor arguments
-      checkHealth: true
+      // Polls the agent's static Health.check() (see backend/agent.js)
+      healthCheck: { intervalMs: 30000 }
     }
   },
   debug: true
-});
+})

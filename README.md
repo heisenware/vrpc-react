@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 
-**Stop writing API boilerplate.** VRPC (Virtual Remote Procedure Call) allows you to call Node.js, C++, Python, and Arduino classes across any network as if they were local objects. Perfect for microservices, IoT edge devices, and directly driving React frontends—without the need for REST, GraphQL, or WebSocket boilerplate.
+**Stop writing API boilerplate.** VRPC (Variadic Remote Procedure Calls) allows you to call Node.js, C++, Python, and Arduino classes across any network as if they were local objects. Perfect for microservices, IoT edge devices, and directly driving React frontends - without the need for REST, GraphQL, or WebSocket boilerplate.
 
 **`vrpc-react`** provides the official, fully-typed React bindings for the [VRPC](https://vrpc.io/) ecosystem.
 
@@ -38,18 +38,18 @@ yarn add vrpc-react vrpc
 
 The documentation explains the API in steps. When creating a new React project you will have to follow those steps in order to successfully integrate VRPC.
 
-### 1. Creating a VrpcProvider
+### 1. Define your topology with createVrpc
 
-In the initialization file of your React app, define your VRPC topology using `createVrpcProvider`.
+In the initialization file of your React app, define your VRPC topology using `createVrpc`. The factory returns the provider **and** the hooks, bound to your configuration - for TypeScript users the backend names are compile-time checked.
 
 ```javascript
-import { createVrpcProvider } from 'vrpc-react'
+// vrpc.js
+import { createVrpc } from 'vrpc-react'
 
-export const VrpcProvider = createVrpcProvider({
+export const { VrpcProvider, useBackend, useClient } = createVrpc({
   domain: 'my-app-domain',
   // Using the free public HiveMQ broker for testing
-  broker:
-    'wss://[broker.hivemq.com:8884/mqtt](https://broker.hivemq.com:8884/mqtt)',
+  broker: 'wss://broker.hivemq.com:8884/mqtt',
   backends: {
     myBackend: {
       agent: 'my-agent-name',
@@ -79,7 +79,7 @@ Depending on your backend architecture, `vrpc-react` allows you to manage instan
 
 ### 2. Wrap components and provide credentials
 
-Wrap all components that require backend access using the generated `<VrpcProvider>`. This provides the MQTT context to the rest of your app.
+Wrap all components that require backend access using the generated `<VrpcProvider>`. Your app renders immediately - connection progress is reported through the hooks, and React StrictMode is fully supported.
 
 ```javascript
 import React from 'react'
@@ -91,49 +91,56 @@ const root = ReactDOM.createRoot(document.getElementById('root'))
 
 root.render(
   // You can provide token, username, or password here
-  <VrpcProvider username='app-user' password='super-secret'>
-    <App />
-  </VrpcProvider>
+  <React.StrictMode>
+    <VrpcProvider username='app-user' password='super-secret'>
+      <App />
+    </VrpcProvider>
+  </React.StrictMode>
 )
 ```
 
 ### 3. Give a component access to backend functionality
 
-A component can use a single backend, any subset, or all backends. React's hook API allows injecting backends one by one using the injection key (e.g., `'myBackend'`).
+A component can use a single backend, any subset, or all backends. Import the hook from your own `vrpc.js` (it is bound to your configuration) and inject backends by their key (e.g. `'myBackend'`).
 
 ```javascript
 import React, { useEffect, useState } from 'react'
-import { useBackend } from 'vrpc-react'
+import { useBackend } from './vrpc'
 
 export default function MyComponent() {
-  const [myBackend, error] = useBackend('myBackend')
+  const { backend, error, status } = useBackend('myBackend')
   const [data, setData] = useState(null)
 
   useEffect(() => {
-    if (!myBackend) return
+    if (!backend) return
     // Call the remote function seamlessly!
-    myBackend.myBackendFunction('test').then(setData).catch(console.error)
-  }, [myBackend])
+    backend.myBackendFunction('test').then(setData).catch(console.error)
+  }, [backend])
 
-  if (error) return <div>Error! {error.message}</div>
-  if (!myBackend) return <div>Connecting to backend...</div>
+  if (status === 'connecting') return <div>Connecting to backend...</div>
+  if (error) return <div>Error ({error.code}): {error.message}</div>
 
   return <div>Backend responded with: {data}</div>
 }
 ```
 
-The `useBackend` hook returns an array containing:
+The `useBackend` hook returns an object containing:
 
-| Index | Type           | Description                                                                  |
-| :---- | :------------- | :--------------------------------------------------------------------------- |
-| `[0]` | *proxy object* | Reflects the actual backend instance (is `null` while loading/offline)       |
-| `[1]` | *error object* | Reflects any network, instantiation, or client issues (is `null` if healthy) |
+| Field     | Type           | Description                                                                                   |
+| :-------- | :------------- | :-------------------------------------------------------------------------------------------- |
+| `backend` | *proxy object* | Reflects the actual backend instance (is `null` while loading/offline)                        |
+| `error`   | `VrpcError`    | Reflects any network, instantiation, or client issue (is `null` if healthy); carries a `code` |
+| `status`  | *string*       | `'connecting' \| 'ready' \| 'offline' \| 'error'` - offline states self-heal automatically    |
+
+**TypeScript bonus:** pass an interface of your remote class and get a fully typed, Promise-returning proxy: `useBackend<MyRemoteClass>('myBackend')`.
 
 ### 4. Manage Multi-Instance Backends
 
-If you defined a backend as a "Manager" (Architecture #4 above—no `instance` or `args` provided), the proxy returned by `useBackend('managerName')` exposes special lifecycle functions:
+If you defined a backend as a "Manager" (Architecture #4 above - no `instance` or `args` provided), `useBackend('managerName')` returns a stable manager object plus a reactive `ids` array:
 
 ```javascript
+const { backend, ids, error, status } = useBackend('managerName')
+
 // Create a new remote instance dynamically
 backend.create(id, { args, className })
 
@@ -143,8 +150,8 @@ backend.get(id)
 // Delete a remote instance
 backend.delete(id)
 
-// A reactive array of all currently available instance IDs
-backend.ids
+// ids: a reactive, immutable array of all currently available instance IDs
+ids.map(id => ...)
 ```
 
 **Targeting a specific instance:**
@@ -152,7 +159,7 @@ Often you will want to access a specific managed instance directly inside a sub-
 
 ```javascript
 // Automatically fetches and manages the proxy for 'my-dynamic-id'
-const [instanceProxy, error] = useBackend('myManagingBackend', 'my-dynamic-id')
+const { backend, error, status } = useBackend('myManagingBackend', 'my-dynamic-id')
 ```
 
 ### 5. Access the raw VRPC client
@@ -160,10 +167,11 @@ const [instanceProxy, error] = useBackend('myManagingBackend', 'my-dynamic-id')
 When calling static/global functions, or when you are interested in the raw availability events of agents and classes, you can directly access the underlying VRPC client.
 
 ```javascript
-import { useClient } from 'vrpc-react'
+import { useClient } from './vrpc'
 
 export default function AdminPanel() {
-  const [client] = useClient('my-app-domain')
+  // Reactive: status is 'connecting' | 'connected' | 'offline' | 'error'
+  const { client, status } = useClient()
 
   const triggerStatic = async () => {
     await client.callStatic({
@@ -197,6 +205,12 @@ useEffect(() => {
 
 VRPC will handle the remote subscription over MQTT for you automatically. Event subscriptions are the highly recommended way to realize front-end notifications whenever something on the backend changes.
 
+**Health Checks:**
+Set `healthCheck: true` (or `healthCheck: { intervalMs }`) on a backend configuration to let the client poll the corresponding agent periodically. The agent must register a class named `Health` exposing a static `check()` function. Failures surface in the backend's `error`/`status` and via `onError`. See the [API reference](docs/api.md#health-checks) for details.
+
+**Resilience:**
+Broker disconnects, vanishing agents, and lost instances degrade the affected backends to `status: 'offline'` and recover automatically when they return - no reloads, no manual re-subscription.
+
 ---
 
 ## The VRPC Ecosystem
@@ -210,7 +224,7 @@ Write your performance-critical code in **C++**, your data-science scripts in **
 
 ## Documentation
 
-For detailed API references, advanced schema validation, and architecture overviews, please visit our official documentation at **[vrpc.io/docs](https://vrpc.io/docs)**.
+The full API reference for this library lives in **[docs/api.md](docs/api.md)**. Upgrading from 0.1.x? See the **[migration guide](docs/migration.md)**. For advanced schema validation and architecture overviews of the wider ecosystem, please visit our official documentation at **[vrpc.io/docs](https://vrpc.io/docs)**.
 
 ## Contributing
 
@@ -218,4 +232,4 @@ Contributions are welcome! Whether it's reporting a bug, proposing a new feature
 
 ## License
 
-VRPC is released under the [MIT License](LICENSE).
+`vrpc-react` is released under the [MIT License](LICENSE).

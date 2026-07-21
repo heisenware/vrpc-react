@@ -2,8 +2,17 @@
 const { VrpcAgent, VrpcAdapter } = require('vrpc')
 const TodoList = require('./TodoList')
 
-// Register the class so VRPC can create instances of it
+// The frontend enables healthCheck for this agent: vrpc-react then
+// periodically calls the static check() of a class named 'Health'.
+class Health {
+  static check () {
+    return true
+  }
+}
+
+// Register the classes so VRPC can serve them
 VrpcAdapter.register(TodoList)
+VrpcAdapter.register(Health)
 
 async function main () {
   const agent = new VrpcAgent({

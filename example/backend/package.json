@@ -1,14 +1,13 @@
 {
-  "name": "backend",
+  "name": "vrpc-react-example-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "description": "Backend agent for the vrpc-react example: a shared TodoList served over MQTT",
+  "main": "agent.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node agent.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
   "dependencies": {
     "vrpc": "^3.7.0"
   }

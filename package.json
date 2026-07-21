@@ -1,47 +1,58 @@
 {
   "name": "vrpc-react",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "React bindings and hooks for VRPC",
-  "main": "./dist/index.cjs.js",
-  "module": "./dist/index.es.js",
-  "types": "./dist/src/index.d.ts",
+  "type": "commonjs",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.es.js",
-      "require": "./dist/index.cjs.js",
-      "types": "./dist/src/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
+  "sideEffects": false,
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "vite build",
-    "lint": "eslint src/**/*.{js,jsx}",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "prepublishOnly": "npm run build"
+    "build": "vite build && tsc -p tsconfig.build.json && node scripts/postbuild.mjs",
+    "lint": "eslint .",
+    "format": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "peerDependencies": {
-    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
     "vrpc": "^3.7.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.60.1",
-    "@typescript-eslint/parser": "^8.60.1",
+    "@types/use-sync-external-store": "^1.5.0",
     "@vitejs/plugin-react": "^6.0.2",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-react": "^7.37.5",
+    "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "prettier": "^3.8.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "globals": "^17.7.0",
+    "jsdom": "^29.1.1",
+    "neostandard": "^0.13.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
-    "vite-plugin-dts": "^5.0.2",
-    "vrpc": "latest"
+    "vitest": "^4.1.10",
+    "vrpc": "^3.7.0"
   },
   "keywords": [
     "react",
@@ -55,5 +66,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/heisenware/vrpc-react.git"
+  },
+  "dependencies": {
+    "use-sync-external-store": "^1.6.0"
   }
 }
