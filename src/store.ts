@@ -167,7 +167,8 @@ export function createVrpcStore (
           className: options.className ?? backendConfig.className,
           args: options.args ?? [],
           instance: id,
-          cacheProxy: true
+          cacheProxy: true,
+          isIsolated: options.isolated ?? backendConfig.isolated === true
         }),
       get: async id =>
         requireClient().getInstance(id, {
@@ -278,7 +279,8 @@ export function createVrpcStore (
         className: backendConfig.className,
         instance: backendConfig.instance,
         args: backendConfig.args,
-        cacheProxy: true
+        cacheProxy: true,
+        isIsolated: backendConfig.isolated === true
       })
       .then(proxy => {
         if (!alive()) return

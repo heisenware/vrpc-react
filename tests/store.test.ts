@@ -83,11 +83,35 @@ describe('createVrpcStore', () => {
       className: 'Active',
       instance: 'active-1',
       args: [1],
-      cacheProxy: true
+      cacheProxy: true,
+      isIsolated: false
     })
     const entry = store.getBackend('active')
     expect(entry.status).toBe('ready')
     expect(entry.backend.vrpcInstanceId).toBe('active-1')
+  })
+
+  it('creates an isolated backend as isolated, for active and manager backends', async () => {
+    const backends: ResolvedConfig['backends'] = {
+      auth: { agent: 'a1', className: 'Auth', args: [], isolated: true },
+      seats: { agent: 'a1', className: 'Seat', isolated: true }
+    }
+    const { store } = attach(backends)
+    client.connack()
+    client.agentOnline('a1')
+    await flush()
+    expect(client.create).toHaveBeenCalledWith(
+      expect.objectContaining({ className: 'Auth', isIsolated: true })
+    )
+    const manager = store.getBackend('seats').backend
+    await manager.create('seat-1')
+    expect(client.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({ instance: 'seat-1', isIsolated: true })
+    )
+    await manager.create('seat-2', { isolated: false })
+    expect(client.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({ instance: 'seat-2', isIsolated: false })
+    )
   })
 
   it('reports INSTANCE_CREATION_FAILED when create rejects', async () => {

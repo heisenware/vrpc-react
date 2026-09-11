@@ -73,6 +73,13 @@ export interface VrpcBackendConfig {
   instance?: string
   /** Constructor arguments; providing this makes the backend active (it creates the instance) */
   args?: readonly unknown[]
+  /**
+   * Create the instance isolated: hidden from other clients, answering this
+   * connection only (vrpc >= 3.9 agents enforce it), and removed by the
+   * agent when the connection ends. The provider re-creates it when the
+   * agent comes online again after a reconnect.
+   */
+  isolated?: boolean
 }
 
 export interface VrpcConfig<
@@ -167,6 +174,7 @@ export interface VrpcManager<T = VrpcProxy> {
       args?: readonly unknown[]
       className?: string
       agent?: string
+      isolated?: boolean
     }
   ) => Promise<Proxied<T>>
   get: (id: string) => Promise<Proxied<T>>

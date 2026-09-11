@@ -54,6 +54,7 @@ For TypeScript users the backend keys are inferred, so `useBackend('todoz')` is 
 | `className` | `string`    | yes      | Name of the remotely registered class.                                                    |
 | `instance`  | `string`    | no       | Named instance to use (see architectures below).                                          |
 | `args`      | `unknown[]` | no       | Constructor arguments; providing this makes the backend active (it creates the instance). |
+| `isolated`  | `boolean`   | no       | Create the instance isolated: hidden from other clients, answering this connection only (enforced by vrpc >= 3.9 agents), removed by the agent when the connection ends. The provider re-creates it when the agent comes back online after a reconnect. Use it for backends that hold a session, such as a login. |
 
 **The four backend architectures** - which properties you provide determines how the backend is managed:
 
@@ -177,7 +178,7 @@ If a backend was configured **without** `instance` and `args` (architecture numb
 
 | Member                              | Description                                                                                                                      |
 | :---------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
-| `create(id, options?)`              | Create a new named instance. `options`: `{ args, className, agent }` (all optional). Resolves to a proxy.                        |
+| `create(id, options?)`              | Create a new named instance. `options`: `{ args, className, agent, isolated }` (all optional; `isolated` defaults to the backend's). Resolves to a proxy. |
 | `get(id)`                           | Obtain a proxy to an existing instance.                                                                                          |
 | `delete(id)`                        | Delete a remote instance.                                                                                                        |
 | `callStatic(functionName, ...args)` | Call a static function on the configured class. Also accepts a single options object `{ functionName, args, className, agent }`. |
