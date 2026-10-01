@@ -86,6 +86,18 @@ export function createVrpc<
     const effectiveIdentity = identity ?? resolved.identity
     const effectiveMqttClientId = mqttClientId ?? resolved.mqttClientId
 
+    // Credentials are a connect-time fact: the broker checks them when a
+    // connection is made. A change reaches the live client in place (the
+    // effect below), so a renewed token neither drops a working session
+    // nor builds a new client that has to win its first connect again;
+    // the client is only rebuilt when WHERE or AS WHOM it connects changes
+    const credentialsRef = useRef({ username, password })
+    useEffect(() => {
+      credentialsRef.current = { username, password }
+    })
+    const clientRef = useRef<any>(null)
+    const appliedRef = useRef({ username, password })
+
     useEffect(() => {
       if (!effectiveDomain || !effectiveBroker) {
         if (resolved.debug) {
@@ -95,11 +107,12 @@ export function createVrpc<
         }
         return
       }
+      const credentials = credentialsRef.current
       const client = new VrpcClient({
         broker: effectiveBroker,
         domain: effectiveDomain,
-        username,
-        password,
+        username: credentials.username,
+        password: credentials.password,
         identity: effectiveIdentity,
         bestEffort: resolved.bestEffort,
         requiresSchema: resolved.requiresSchema,
@@ -108,9 +121,14 @@ export function createVrpc<
         ...(resolved.timeout !== undefined && { timeout: resolved.timeout }),
         ...(resolved.log !== undefined && { log: resolved.log })
       })
+      clientRef.current = client
+      appliedRef.current = credentials
       const detach = store.attach(client)
       let cancelled = false
-      const connecting: Promise<void> = client.connect().catch((cause: unknown) => {
+      // keepTrying: a first connect that misses the timeout is reported
+      // (CONNECTION_FAILED), but the client goes on trying until it is
+      // ended - a mounted provider never gives up on its connection
+      client.connect({ keepTrying: true }).catch((cause: unknown) => {
         if (cancelled) return
         store.connectFailed(
           new VrpcError('CONNECTION_FAILED', 'VRPC client failed to connect', {
@@ -120,22 +138,33 @@ export function createVrpc<
       })
       return () => {
         cancelled = true
+        if (clientRef.current === client) clientRef.current = null
         detach()
-        // end() only after connect() settled: avoids vrpc's stale
-        // connect-timeout timer killing a successor connection
-        connecting.finally(() => {
-          client.end().catch(() => {})
-        })
+        // at once, even while connect() is pending: a client that keeps
+        // trying would otherwise compete with its successor for the same
+        // mqtt client id (vrpc >= 3.14 times out only the client it
+        // belongs to, so no stale timer can hit the successor)
+        client.end().catch(() => {})
       }
     }, [
       store,
-      username,
-      password,
       effectiveDomain,
       effectiveBroker,
       effectiveIdentity,
       effectiveMqttClientId
     ])
+
+    // new credentials for the live client: a refused connection tries
+    // them at once, a working one keeps its session and uses them at the
+    // next connect
+    useEffect(() => {
+      const client = clientRef.current
+      if (!client) return
+      const applied = appliedRef.current
+      if (applied.username === username && applied.password === password) return
+      appliedRef.current = { username, password }
+      client.updateCredentials({ username, password })
+    }, [username, password])
 
     return (
       <StoreContext.Provider value={store}>{children}</StoreContext.Provider>

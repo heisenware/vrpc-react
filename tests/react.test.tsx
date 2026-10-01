@@ -132,6 +132,11 @@ describe('VrpcProvider & hooks', () => {
     expect(MockVrpcClient.instances).toHaveLength(2)
     const [first, second] = MockVrpcClient.instances
 
+    // the abandoned client is ended at once, while its connect is still
+    // pending: it must not compete with the survivor for the client id
+    expect(first.end).toHaveBeenCalledTimes(1)
+    expect(second.end).not.toHaveBeenCalled()
+
     // the surviving client drives the app
     await act(async () => {
       second.connack()
@@ -140,13 +145,11 @@ describe('VrpcProvider & hooks', () => {
     })
     expect(screen.getByTestId('status').textContent).toBe('ready')
 
-    // the abandoned client is ended once its connect settles, and its
-    // late events do not disturb the app
+    // late events of the abandoned client do not disturb the app
     await act(async () => {
       first.connack()
       await flush()
     })
-    expect(first.end).toHaveBeenCalledTimes(1)
     expect(second.end).not.toHaveBeenCalled()
     await act(async () => first.agentOffline('a1'))
     expect(screen.getByTestId('status').textContent).toBe('ready')
@@ -396,7 +399,7 @@ describe('VrpcProvider & hooks', () => {
     expect(todosRenders).toBe(todosBefore)
   })
 
-  it('replaces the client on credential change', async () => {
+  it('hands changed credentials to the live client instead of replacing it', async () => {
     const { VrpcProvider, useClient } = makeFactory()
 
     function Probe () {
@@ -411,22 +414,56 @@ describe('VrpcProvider & hooks', () => {
     )
     await act(async () => MockVrpcClient.last.connack())
     expect(MockVrpcClient.instances).toHaveLength(1)
-    const first = MockVrpcClient.last
-    expect(first.options.password).toBe('secret-1')
+    const client = MockVrpcClient.last
+    expect(client.options.password).toBe('secret-1')
+    expect(client.updateCredentials).not.toHaveBeenCalled()
 
+    // a renewed token: the session stays, the next connect uses it
     view.rerender(
       <VrpcProvider username='alice' password='secret-2'>
         <Probe />
       </VrpcProvider>
     )
     await flush()
-    expect(MockVrpcClient.instances).toHaveLength(2)
-    expect(first.end).toHaveBeenCalledTimes(1)
-    const second = MockVrpcClient.last
-    expect(second.options.password).toBe('secret-2')
-    expect(screen.getByTestId('status').textContent).toBe('connecting')
-    await act(async () => second.connack())
+    expect(MockVrpcClient.instances).toHaveLength(1)
+    expect(client.end).not.toHaveBeenCalled()
+    expect(client.updateCredentials).toHaveBeenCalledTimes(1)
+    expect(client.updateCredentials).toHaveBeenCalledWith({
+      username: 'alice',
+      password: 'secret-2'
+    })
     expect(screen.getByTestId('status').textContent).toBe('connected')
+
+    // an unrelated re-render hands nothing over
+    view.rerender(
+      <VrpcProvider username='alice' password='secret-2'>
+        <Probe />
+      </VrpcProvider>
+    )
+    await flush()
+    expect(client.updateCredentials).toHaveBeenCalledTimes(1)
+  })
+
+  it('names a refusal of the credentials CREDENTIALS_REFUSED (#38)', async () => {
+    const { VrpcProvider } = makeFactory()
+    const onError = vi.fn()
+    render(<VrpcProvider onError={onError}><span /></VrpcProvider>)
+    const refused = Object.assign(
+      new Error('Connection refused: Not authorized'),
+      { code: 5 }
+    )
+    await act(async () => {
+      MockVrpcClient.last.networkError(refused)
+      // an mqtt build without reason codes: the message decides
+      MockVrpcClient.last.networkError(
+        new Error('Connection refused: Bad User Name or Password')
+      )
+      MockVrpcClient.last.networkError(new Error('read ECONNRESET'))
+      await flush()
+    })
+    const codes = onError.mock.calls.map(([error]) => error.code)
+    expect(codes).toEqual(['CREDENTIALS_REFUSED', 'CREDENTIALS_REFUSED', 'NETWORK_ERROR'])
+    expect(onError.mock.calls[0][0].cause).toBe(refused)
   })
 
   it('stays dormant until BOTH domain and broker are available', async () => {
@@ -592,6 +629,8 @@ describe('VrpcProvider & hooks', () => {
     expect(options.identity).toBe('user@heisenware.com')
     expect(options.username).toBe('bob')
     expect(options.password).toBe('secret')
+    // the new client was born with the credentials: nothing to hand over
+    expect(MockVrpcClient.last.updateCredentials).not.toHaveBeenCalled()
   })
 
   it('reports CONNECTION_FAILED when the initial connect rejects', async () => {
@@ -621,5 +660,44 @@ describe('VrpcProvider & hooks', () => {
     expect(screen.getByTestId('code').textContent).toBe('CONNECTION_FAILED')
     expect(onError).toHaveBeenCalledTimes(1)
     expect(onError.mock.calls[0][0].message).toContain('Connection trial timed out')
+  })
+
+  it('never gives up: a client that missed the timeout recovers when it connects later (#1738)', async () => {
+    const { VrpcProvider, useBackend, useClient } = makeFactory()
+
+    function Probe () {
+      const { status } = useBackend('todos')
+      const { status: clientStatus } = useClient()
+      return (
+        <div>
+          <span data-testid='status'>{status}</span>
+          <span data-testid='client'>{clientStatus}</span>
+        </div>
+      )
+    }
+
+    render(
+      <VrpcProvider>
+        <Probe />
+      </VrpcProvider>
+    )
+    const client = MockVrpcClient.last
+    expect(client.connect).toHaveBeenCalledWith({ keepTrying: true })
+    await act(async () => {
+      client.failConnect(new Error('Connection trial timed out (> 12000 ms)'))
+      await flush()
+    })
+    expect(screen.getByTestId('client').textContent).toBe('error')
+    expect(client.end).not.toHaveBeenCalled()
+
+    // vrpc keeps trying in the background; its later connect heals all
+    await act(async () => {
+      client.connack()
+      client.agentOnline('a1')
+      await flush()
+    })
+    expect(MockVrpcClient.instances).toHaveLength(1)
+    expect(screen.getByTestId('client').textContent).toBe('connected')
+    expect(screen.getByTestId('status').textContent).toBe('ready')
   })
 })

@@ -76,7 +76,7 @@ export function makeProxy (id: string) {
 }
 
 /**
- * Mimics the VrpcClient surface and event contract of vrpc 3.7.0
+ * Mimics the VrpcClient surface and event contract of vrpc 3.14.0
  * (event names and payload shapes verified against the real source).
  */
 export class MockVrpcClient extends MiniEmitter {
@@ -96,7 +96,13 @@ export class MockVrpcClient extends MiniEmitter {
   connectDeferred = deferred()
   connected = false
 
-  connect = vi.fn(() => this.connectDeferred.promise)
+  connect = vi.fn((_options?: { keepTrying?: boolean }) => this.connectDeferred.promise)
+
+  // vrpc >= 3.14: credentials reach the live client in place
+  updateCredentials = vi.fn((credentials: { username?: string, password?: string }) => {
+    this.options = { ...this.options, ...credentials }
+  })
+
   end = vi.fn(async () => {
     this.connected = false
     // the real end() also wipes all listeners

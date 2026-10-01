@@ -82,7 +82,7 @@ await client.callStatic({ agent: 'my-agent', className: 'MyClass', functionName:
 - `domain` and `broker` no longer have defaults (previously `'vrpc'` and a public demo broker). No connection is attempted until both are provided - via `createVrpc` or, since 1.1.0, via provider props. This rules out accidental connections to unintended brokers or domains; consumers that relied on the defaults must now pass both explicitly.
 - The MQTT `keepalive` now defaults to 30 seconds (vrpc's default). It was previously hardcoded to 3 hours. `keepalive`, `timeout`, and `log` are new passthrough options of `createVrpc`.
 - Changing the `onError` prop identity no longer tears down the connection. Passing inline arrow functions is safe.
-- Changing `username` or `password` performs a clean reconnect with a fresh client.
+- Changing `username` or `password` hands the new credentials to the live client (since 1.3.0; before, it performed a clean reconnect with a fresh client).
 - The `token` provider prop was removed. It was an opinionated convenience on top of MQTT (vrpc simply used the token as the MQTT password). Pass your token as `password` instead:
 
   ```jsx

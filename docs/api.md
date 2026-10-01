@@ -72,7 +72,7 @@ For TypeScript users the backend keys are inferred, so `useBackend('todoz')` is 
 
 ## `<VrpcProvider>` component
 
-The component returned by `createVrpc`. It owns the MQTT connection (one fresh client per mount and per credential set) and always renders its children immediately - connection progress flows through the hooks' `status`.
+The component returned by `createVrpc`. It owns the MQTT connection (one client per mount and per connection target) and always renders its children immediately - connection progress flows through the hooks' `status`.
 
 ### Props
 
@@ -98,7 +98,9 @@ Notes:
 
 - **The provider stays dormant until both `domain` and `broker` are defined** (from the factory config or from props): no client is created and no network traffic occurs; hooks report `connecting`. There are deliberately no defaults for these two parameters - a connection can never go to an unintended broker or domain.
 - `onError` is consumed through a ref: passing an inline arrow function is safe and never affects the connection.
-- Changing `username`, `password`, or any connection override (`domain`, `broker`, `identity`, `mqttClientId`) cleanly replaces the connection; several changes in one React commit produce a single reconnect. Backends cycle `offline -> connecting -> ready` and event subscriptions re-establish.
+- Changing a connection override (`domain`, `broker`, `identity`, `mqttClientId`) cleanly replaces the connection; several changes in one React commit produce a single reconnect. Backends cycle `offline -> connecting -> ready` and event subscriptions re-establish.
+- Changing `username` or `password` does **not** replace the connection: the broker checks credentials when a connection is made, so the live client keeps its session and uses the new credentials at its next connect. A connection that is being refused right now tries them at once. This is how a renewed access token reaches a long-lived connection without a reconnect (requires vrpc >= 3.14).
+- The provider never gives up on its connection: a first connect that misses the timeout is reported as `CONNECTION_FAILED`, but the client keeps trying and the hooks recover once it connects.
 - The connection overrides fall back per-prop to the `createVrpc` config (`props.x ?? config.x`); the factory keeps everything else (backends, QoS, timeouts). If you supply `mqttClientId`, keeping it stable across reconnects is your responsibility.
 - Authentication maps 1:1 to MQTT: if your broker uses token schemes, pass the token as the MQTT `password`.
 - `<React.StrictMode>` is fully supported.
@@ -247,9 +249,10 @@ class VrpcError extends Error {
 
 | Code                       | Meaning                                                                    |
 | :------------------------- | :------------------------------------------------------------------------- |
-| `CONNECTION_FAILED`        | The initial `connect()` was rejected (timeout, authentication refusal).    |
+| `CONNECTION_FAILED`        | The first connect did not succeed within the timeout; trying continues.    |
 | `CLIENT_OFFLINE`           | The MQTT connection was lost (also used by manager methods while offline). |
 | `NETWORK_ERROR`            | The underlying MQTT client reported an error.                              |
+| `CREDENTIALS_REFUSED`      | The broker refused the credentials (MQTT reason code 4, 5, 134 or 135).    |
 | `AGENT_OFFLINE`            | A required agent went offline.                                             |
 | `INSTANCE_GONE`            | A passive backend's instance disappeared.                                  |
 | `INSTANCE_CREATION_FAILED` | Creating an active/anonymous instance failed.                              |
@@ -267,7 +270,7 @@ class VrpcError extends Error {
 What happens when the connection drops - a network change, a suspended laptop, or a browser throttling a background tab:
 
 1. The MQTT keepalive (30 s by default) makes both sides notice a dead connection within about a minute. All backends transition to `status: 'offline'` (`CLIENT_OFFLINE`) and `useClient()` reports `offline`.
-2. The underlying MQTT client reconnects automatically (retrying every second while the problem persists).
+2. The underlying MQTT client reconnects automatically: every second while the broker cannot be reached; after a refusal (stale credentials, an authorization service that is away) with a wait that doubles up to 30 s, so a refused client does not knock once a second for ever. Every refusal is reported as `CREDENTIALS_REFUSED`: renew the credentials and pass them as a new `password` - the live client tries them at once.
 3. On reconnection, the VRPC system replays its retained agent and class information. Agents re-announce, instances re-appear, and every backend runs through the exact same resolution pipeline as on startup - proxies are re-created and statuses return to `ready` without any action on your part. Remote event subscriptions are re-established as well.
 
 Two things to know:

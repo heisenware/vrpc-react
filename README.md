@@ -132,7 +132,7 @@ function App() {
 
 Each override falls back to the `createVrpc` config value when omitted. `domain` and `broker` are special: they have **no defaults**, and the provider stays dormant - no client, no network traffic, hooks report `connecting` - until both are defined. You can therefore keep the provider mounted through your whole login flow without any risk of a connection to an unintended broker or domain; the first connection attempt starts exactly when both values become available.
 
-Changing any override (or the credentials) tears the connection down and reconnects with the new values - several changes in one render cause a single reconnect. Hooks used outside their provider throw `MISSING_PROVIDER`. If you supply `mqttClientId`, keeping it stable across reconnects is your responsibility.
+Changing any override tears the connection down and reconnects with the new values - several changes in one render cause a single reconnect. Changing the credentials does not: the live client keeps its session and logs in with them at its next connect, and a client the broker is refusing right now tries them at once. That is how a host renews an expiring token: on `CREDENTIALS_REFUSED` (or ahead of the expiry) it passes the new token as `password`. Hooks used outside their provider throw `MISSING_PROVIDER`. If you supply `mqttClientId`, keeping it stable across reconnects is your responsibility.
 
 ### 3. Give a component access to backend functionality
 
@@ -245,7 +245,7 @@ useEffect(() => {
 VRPC handles the remote subscription over MQTT for you automatically. Event subscriptions are the highly recommended way to realize front-end notifications whenever something on the backend changes.
 
 **Connection behavior & recovery:**
-The MQTT keepalive (30 s by default) detects dead connections within about a minute - including background tabs that browsers throttle. The client then reconnects automatically, agents and instances re-announce themselves through retained MQTT messages, and every backend recovers to `ready` on its own; remote event subscriptions are re-established too. One consequence of MQTT's non-persistent sessions: messages published while you were disconnected are **not** delivered afterwards. The fetch-and-subscribe pattern above closes that gap - after every recovery the proxy object is replaced, your effect re-runs, and the state resyncs. Details in the [API reference](docs/api.md#reconnection-and-message-delivery).
+The MQTT keepalive (30 s by default) detects dead connections within about a minute - including background tabs that browsers throttle. The client then reconnects automatically - it never gives up while the provider is mounted, and backs off after refused logins - agents and instances re-announce themselves through retained MQTT messages, and every backend recovers to `ready` on its own; remote event subscriptions are re-established too. One consequence of MQTT's non-persistent sessions: messages published while you were disconnected are **not** delivered afterwards. The fetch-and-subscribe pattern above closes that gap - after every recovery the proxy object is replaced, your effect re-runs, and the state resyncs. Details in the [API reference](docs/api.md#reconnection-and-message-delivery).
 
 ---
 

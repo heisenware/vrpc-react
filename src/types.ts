@@ -21,8 +21,14 @@ export interface VrpcCallOptions {
 }
 
 export interface VrpcClient {
-  connect: () => Promise<void>
+  connect: (options?: { keepTrying?: boolean }) => Promise<void>
   end: () => Promise<void>
+  /** vrpc >= 3.14: new credentials for the next connect, at once if refused */
+  updateCredentials: (credentials: {
+    username?: string
+    password?: string
+    token?: string
+  }) => void
   create: (options: {
     className: string
     instance?: string
@@ -125,9 +131,10 @@ export interface VrpcProviderProps {
   password?: string
   /**
    * Connection overrides - each defaults to the corresponding createVrpc
-   * config value. Changing any of them behaves exactly like changing
-   * username/password: the client is torn down and reconnected; backends
-   * cycle offline -> connecting -> ready; event subscriptions re-establish.
+   * config value. Changing any of them tears the client down and
+   * reconnects; backends cycle offline -> connecting -> ready; event
+   * subscriptions re-establish. Changing username/password does NOT: the
+   * live client takes them for its next connect (at once while refused).
    */
   domain?: string
   broker?: string

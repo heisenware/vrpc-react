@@ -1,4 +1,4 @@
-import { VrpcError } from './errors'
+import { isRefusedCredential, VrpcError } from './errors'
 import type {
   BackendStatus,
   UseClientResult,
@@ -456,7 +456,11 @@ export function createVrpcStore (
   }
 
   const handleNetworkError = (cause: Error) => {
-    const error = new VrpcError('NETWORK_ERROR', 'The MQTT connection reported an error', { cause })
+    // a refusal is named, so a host can renew its credentials (a new
+    // password prop reaches the live client, see VrpcProvider)
+    const error = isRefusedCredential(cause)
+      ? new VrpcError('CREDENTIALS_REFUSED', 'The broker refused the credentials', { cause })
+      : new VrpcError('NETWORK_ERROR', 'The MQTT connection reported an error', { cause })
     setClientEntry({ error })
     onError(error)
   }
